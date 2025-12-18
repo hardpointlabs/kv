@@ -28,6 +28,11 @@ func Serve(db *badger.DB) {
 				conn.WriteString("OK")
 				conn.Close()
 			case "flushall":
+				err := db.DropAll()
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
 				conn.WriteString("OK")
 			case "exists":
 				if len(cmd.Args) < 2 {
@@ -204,6 +209,8 @@ func Serve(db *badger.DB) {
 					conn.WriteBulk(valCopy)
 					return nil
 				})
+			case "move":
+				conn.WriteInt(0)
 			case "rename":
 				if len(cmd.Args) != 3 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
@@ -244,38 +251,120 @@ func Serve(db *badger.DB) {
 					conn.WriteString("OK")
 					return nil
 				})
+			case "renamenx":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				_ = db.Update(func(txn *badger.Txn) error {
+					var renamed = false
+					_, err := txn.Get(cmd.Args[2])
+					if err != nil {
+						if err == badger.ErrKeyNotFound {
+							item, err := txn.Get(cmd.Args[1])
+							if err != nil {
+								conn.WriteError("no such key")
+								return nil
+							}
+							var valCopy []byte
+							err = item.Value(func(val []byte) error {
+								valCopy = append([]byte{}, val...)
+								return nil
+							})
+							if err != nil {
+								log.Println("fdsdfdsfsd")
+								conn.WriteError("ERR " + err.Error())
+								return err
+							}
+							// Set the new key
+							e := badger.NewEntry(cmd.Args[2], valCopy)
+							err = txn.SetEntry(e)
+							if err != nil {
+								log.Println("something hello")
+								conn.WriteError("ERR " + err.Error())
+								return err
+							}
+							// Delete the old key
+							err = txn.Delete(cmd.Args[1])
+							if err != nil {
+								log.Println("I dunnot, tried to delete")
+								conn.WriteError("ERR " + err.Error())
+								return err
+							}
+							renamed = true
+						} else {
+							return err
+						}
+					}
+
+					if renamed {
+						conn.WriteInt(1)
+					} else {
+						conn.WriteInt(0)
+					}
+					return nil
+				})
 			case "setnx":
 				if len(cmd.Args) != 3 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 					return
 				}
 
-				var existed = true
-				err := db.Update(func(txn *badger.Txn) error {
+				_ = db.Update(func(txn *badger.Txn) error {
+					var set = false
 					_, err := txn.Get(cmd.Args[1])
+					log.Println(string(cmd.Args[1]))
 					if err != nil {
+						// key does not exist, set it
 						if err == badger.ErrKeyNotFound {
 							e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
 							err = txn.SetEntry(e)
 							if err != nil {
 								return err
 							}
-							existed = false
-							return nil
+							set = true
+						} else {
+							return err
 						}
-						return err
 					}
-					return err
+
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if set {
+						conn.WriteInt(1)
+					} else {
+						conn.WriteInt(0)
+					}
+					return nil
 				})
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
+			case "pttl":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 					return
 				}
-				if existed {
-					conn.WriteInt(0)
-				} else {
-					conn.WriteInt(1)
-				}
+				_ = db.View(func(txn *badger.Txn) error {
+					item, err := txn.Get(cmd.Args[1])
+					if err != nil {
+						if err == badger.ErrKeyNotFound {
+							conn.WriteInt(-2)
+							return nil
+						}
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					ttl := item.ExpiresAt()
+					// redis expects the TTL in seconds
+					now := uint64(time.Now().UnixNano() / 1e6)
+					remaining := int64(ttl) - int64(now)
+					if remaining <= 0 {
+						conn.WriteInt(-1)
+						return nil
+					}
+					conn.WriteInt64(remaining)
+					return nil
+				})
 			case "ttl":
 				if len(cmd.Args) != 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
@@ -295,8 +384,8 @@ func Serve(db *badger.DB) {
 					// redis expects the TTL in seconds
 					now := uint64(time.Now().UnixNano() / 1e6)
 					remaining := int64(ttl) - int64(now)
-					if remaining < 0 {
-						conn.WriteInt(-2)
+					if remaining <= 0 {
+						conn.WriteInt(-1)
 						return nil
 					}
 					conn.WriteInt(int(remaining / 1000))
