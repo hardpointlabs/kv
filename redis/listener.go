@@ -20,11 +20,15 @@ func Serve(db *badger.DB) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
+			case "select":
+				conn.WriteString("OK")
 			case "ping":
 				conn.WriteString("PONG")
 			case "quit":
 				conn.WriteString("OK")
 				conn.Close()
+			case "flushall":
+				conn.WriteString("OK")
 			case "exists":
 				if len(cmd.Args) < 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
@@ -128,6 +132,74 @@ func Serve(db *badger.DB) {
 					if err != nil {
 						conn.WriteError("ERR " + err.Error())
 						return err
+					}
+					conn.WriteBulk(valCopy)
+					return nil
+				})
+			case "getset":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				_ = db.Update(func(txn *badger.Txn) error {
+					item, err := txn.Get(cmd.Args[1])
+					if err != nil {
+						// Key does not exist, just set the new value
+						e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+						err = txn.SetEntry(e)
+						if err != nil {
+							conn.WriteError("ERR " + err.Error())
+							return err
+						}
+						conn.WriteNull()
+						return nil
+					}
+					var valCopy []byte
+					err = item.Value(func(val []byte) error {
+						valCopy = append([]byte{}, val...)
+						return nil
+					})
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return err
+					}
+
+					// Set the new value
+					e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+					err = txn.SetEntry(e)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return err
+					}
+					conn.WriteBulk(valCopy)
+					return nil
+				})
+			case "getdel":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				_ = db.Update(func(txn *badger.Txn) error {
+					item, err := txn.Get(cmd.Args[1])
+					if err != nil {
+						conn.WriteNull()
+						return nil
+					}
+					var valCopy []byte
+					err = item.Value(func(val []byte) error {
+						valCopy = append([]byte{}, val...)
+						return nil
+					})
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return err
+					}
+
+					err = txn.Delete(cmd.Args[1])
+					if err != nil {
+						log.Println("getdel error:", err)
+						conn.WriteNull()
+						return nil
 					}
 					conn.WriteBulk(valCopy)
 					return nil
