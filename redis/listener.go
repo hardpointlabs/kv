@@ -302,6 +302,43 @@ func Serve(db *badger.DB) {
 					conn.WriteInt(int(remaining / 1000))
 					return nil
 				})
+			case "expire":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				seconds, err := strconv.Atoi(string(cmd.Args[2]))
+				if err != nil {
+					conn.WriteError("ERR value is not an integer or out of range")
+					return
+				}
+
+				var updated = 0
+				err = db.Update(func(txn *badger.Txn) error {
+					item, err := txn.Get(cmd.Args[1])
+					if err != nil {
+						updated = 0
+						return nil
+					}
+					var valCopy []byte
+					err = item.Value(func(val []byte) error {
+						valCopy = append([]byte{}, val...)
+						return nil
+					})
+					if err != nil {
+						return err
+					}
+
+					// Set the new key
+					e := badger.NewEntry(cmd.Args[2], valCopy).WithTTL(time.Duration(seconds) * time.Second)
+					err = txn.SetEntry(e)
+					return err
+				})
+
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+				}
+				conn.WriteInt(updated)
 			case "del":
 				if len(cmd.Args) != 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
