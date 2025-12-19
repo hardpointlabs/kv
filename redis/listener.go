@@ -112,6 +112,41 @@ func moveKey(conn redcon.Conn, db *badger.DB, key []byte, targetDb int) {
 	})
 }
 
+func incrementKey(conn redcon.Conn, db *badger.DB, key []byte, amount int64) {
+	_ = db.Update(func(txn *badger.Txn) error {
+		var currentValue int64 = 0
+		item, err := txn.Get(rawKeyPrefix(key, currentDb(conn)))
+		if err != nil {
+			conn.WriteNull()
+			return nil
+		}
+
+		var valCopy []byte
+		err = item.Value(func(val []byte) error {
+			valCopy = append([]byte{}, val...)
+			return nil
+		})
+		if err != nil {
+			conn.WriteError("ERR " + err.Error())
+			return err
+		}
+		currentValue, err = strconv.ParseInt(string(valCopy), 10, 64)
+		if err != nil {
+			conn.WriteError("ERR value is not an integer or out of range")
+			return err
+		}
+		currentValue += amount
+		entry := badger.NewEntry(rawKeyPrefix(key, currentDb(conn)), []byte(strconv.FormatInt(currentValue, 10)))
+		err = txn.SetEntry(entry)
+		if err != nil {
+			conn.WriteError("ERR " + err.Error())
+			return err
+		}
+		conn.WriteInt64(currentValue)
+		return nil
+	})
+}
+
 func Serve(db *badger.DB) {
 	var ps redcon.PubSub
 	go log.Printf("started redis listener at %s", addr)
@@ -648,6 +683,41 @@ func Serve(db *badger.DB) {
 					conn.WriteError("ERR " + err.Error())
 				}
 				conn.WriteInt(updated)
+			case "incr":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+
+				incrementKey(conn, db, cmd.Args[1], 1)
+			case "incrby":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				amount, err := strconv.ParseInt(string(cmd.Args[2]), 10, 64)
+				if err != nil {
+					conn.WriteError("ERR value is not an integer or out of range")
+					return
+				}
+				incrementKey(conn, db, cmd.Args[1], amount)
+			case "decr":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				incrementKey(conn, db, cmd.Args[1], -1)
+			case "decrby":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				amount, err := strconv.ParseInt(string(cmd.Args[2]), 10, 64)
+				if err != nil {
+					conn.WriteError("ERR value is not an integer or out of range")
+					return
+				}
+				incrementKey(conn, db, cmd.Args[1], -amount)
 			case "del":
 				if len(cmd.Args) != 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
