@@ -34,6 +34,28 @@ func Serve(db *badger.DB) {
 					return
 				}
 				conn.WriteString("OK")
+			case "flushdb":
+				err := db.DropAll()
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteString("OK")
+			case "dbsize":
+				// NOTE: this is O(n) as opposed to O(1) in redis!
+				// Do not use this routinely in production!
+				db.View(func(txn *badger.Txn) error {
+					opts := badger.DefaultIteratorOptions
+					opts.PrefetchSize = 100
+					it := txn.NewIterator(opts)
+					defer it.Close()
+					var count int64 = 0
+					for it.Rewind(); it.Valid(); it.Next() {
+						count++
+					}
+					conn.WriteInt64(count)
+					return nil
+				})
 			case "exists":
 				if len(cmd.Args) < 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
