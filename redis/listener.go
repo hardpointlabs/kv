@@ -2,8 +2,10 @@ package redis
 
 import (
 	"log"
+	"math/rand/v2"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
@@ -12,21 +14,86 @@ import (
 
 var addr = ":6379"
 
+const prefixSeparator = ":"
+
+func currentDbPrefix(conn redcon.Conn) []byte {
+	return []byte(strconv.Itoa(currentDb(conn)) + prefixSeparator)
+}
+
+func rawKeyPrefix(keyName []byte, dbSlot int) []byte {
+	return append([]byte(strconv.Itoa(dbSlot)+prefixSeparator), keyName...)
+}
+
+type ClientInfo struct {
+	Id uint64
+}
+
+func setContext(conn redcon.Conn) {
+	var ctx = conn.Context()
+	if ctx == nil {
+		clientInfo := &ClientInfo{Id: rand.Uint64N(1 << 63)}
+		conn.SetContext(clientInfo)
+	}
+}
+
+var syncMap sync.Map
+
+func connectionId(conn redcon.Conn) uint64 {
+	return (conn.Context()).(*ClientInfo).Id
+}
+
+func currentDb(conn redcon.Conn) int {
+	value, _ := syncMap.LoadOrStore(connectionId(conn), 0)
+	return value.(int)
+}
+
+func setCurrentDb(conn redcon.Conn, dbIndex int) {
+	syncMap.Store(connectionId(conn), dbIndex)
+}
+
 func Serve(db *badger.DB) {
 	var ps redcon.PubSub
 	go log.Printf("started redis listener at %s", addr)
 	err := redcon.ListenAndServe(addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
+			setContext(conn)
+
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
 			case "select":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				dbIndex, err := strconv.Atoi(string(cmd.Args[1]))
+				if err != nil || dbIndex < 0 {
+					conn.WriteError("ERR invalid DB index")
+					return
+				}
+				setCurrentDb(conn, dbIndex)
 				conn.WriteString("OK")
 			case "ping":
 				conn.WriteString("PONG")
 			case "quit":
 				conn.WriteString("OK")
 				conn.Close()
+			case "client":
+				if len(cmd.Args) < 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				subCmd := strings.ToLower(string(cmd.Args[1]))
+				switch subCmd {
+				default:
+					conn.WriteError("subcommand not supported")
+				case "id":
+					conn.WriteUint64((conn.Context()).(*ClientInfo).Id)
+				case "info":
+					infoString := "id=" + strconv.FormatUint(connectionId(conn), 10) + " db=" + strconv.Itoa(currentDb(conn)) + "\r\n"
+					conn.WriteBulkString(infoString)
+					return
+				}
 			case "flushall":
 				err := db.DropAll()
 				if err != nil {
@@ -35,7 +102,7 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteString("OK")
 			case "flushdb":
-				err := db.DropAll()
+				err := db.DropPrefix(currentDbPrefix(conn))
 				if err != nil {
 					conn.WriteError("ERR " + err.Error())
 					return
@@ -47,6 +114,7 @@ func Serve(db *badger.DB) {
 				db.View(func(txn *badger.Txn) error {
 					opts := badger.DefaultIteratorOptions
 					opts.PrefetchSize = 100
+					opts.Prefix = currentDbPrefix(conn)
 					it := txn.NewIterator(opts)
 					defer it.Close()
 					var count int64 = 0
@@ -64,7 +132,7 @@ func Serve(db *badger.DB) {
 				var count = 0
 				err := db.View(func(txn *badger.Txn) error {
 					for _, key := range cmd.Args[1:] {
-						_, err := txn.Get(key)
+						_, err := txn.Get(rawKeyPrefix(key, currentDb(conn)))
 						if err == nil {
 							count++
 						} else if err != badger.ErrKeyNotFound {
@@ -84,7 +152,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				err := db.Update(func(txn *badger.Txn) error {
-					e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2])
 					err := txn.SetEntry(e)
 					return err
 				})
@@ -107,7 +175,7 @@ func Serve(db *badger.DB) {
 
 				expTime := time.Duration(i) * time.Second
 				err = db.Update(func(txn *badger.Txn) error {
-					e := badger.NewEntry(cmd.Args[1], cmd.Args[2]).WithTTL(expTime)
+					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithTTL(expTime)
 					err := txn.SetEntry(e)
 					return err
 				})
@@ -123,7 +191,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						conn.WriteInt(0)
 						return nil
@@ -146,7 +214,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						conn.WriteNull()
 						return nil
@@ -169,10 +237,10 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						// Key does not exist, just set the new value
-						e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+						e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2])
 						err = txn.SetEntry(e)
 						if err != nil {
 							conn.WriteError("ERR " + err.Error())
@@ -192,7 +260,7 @@ func Serve(db *badger.DB) {
 					}
 
 					// Set the new value
-					e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2])
 					err = txn.SetEntry(e)
 					if err != nil {
 						conn.WriteError("ERR " + err.Error())
@@ -207,7 +275,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						conn.WriteNull()
 						return nil
@@ -232,7 +300,7 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "move":
-				conn.WriteInt(0)
+				conn.WriteError("ERR MOVE not implemented")
 			case "rename":
 				if len(cmd.Args) != 3 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
@@ -240,7 +308,7 @@ func Serve(db *badger.DB) {
 				}
 
 				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						conn.WriteError("ERR no such key")
 						return nil
@@ -256,7 +324,7 @@ func Serve(db *badger.DB) {
 					}
 
 					// Set the new key
-					e := badger.NewEntry(cmd.Args[2], valCopy)
+					e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy)
 					err = txn.SetEntry(e)
 					if err != nil {
 						conn.WriteError("ERR " + err.Error())
@@ -280,10 +348,10 @@ func Serve(db *badger.DB) {
 				}
 				_ = db.Update(func(txn *badger.Txn) error {
 					var renamed = false
-					_, err := txn.Get(cmd.Args[2])
+					_, err := txn.Get(rawKeyPrefix(cmd.Args[2], currentDb(conn)))
 					if err != nil {
 						if err == badger.ErrKeyNotFound {
-							item, err := txn.Get(cmd.Args[1])
+							item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 							if err != nil {
 								conn.WriteError("no such key")
 								return nil
@@ -299,7 +367,7 @@ func Serve(db *badger.DB) {
 								return err
 							}
 							// Set the new key
-							e := badger.NewEntry(cmd.Args[2], valCopy)
+							e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy)
 							err = txn.SetEntry(e)
 							if err != nil {
 								log.Println("something hello")
@@ -334,12 +402,12 @@ func Serve(db *badger.DB) {
 
 				_ = db.Update(func(txn *badger.Txn) error {
 					var set = false
-					_, err := txn.Get(cmd.Args[1])
+					_, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					log.Println(string(cmd.Args[1]))
 					if err != nil {
 						// key does not exist, set it
 						if err == badger.ErrKeyNotFound {
-							e := badger.NewEntry(cmd.Args[1], cmd.Args[2])
+							e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2])
 							err = txn.SetEntry(e)
 							if err != nil {
 								return err
@@ -367,7 +435,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						if err == badger.ErrKeyNotFound {
 							conn.WriteInt(-2)
@@ -393,7 +461,7 @@ func Serve(db *badger.DB) {
 					return
 				}
 				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						if err == badger.ErrKeyNotFound {
 							conn.WriteInt(-2)
@@ -426,7 +494,7 @@ func Serve(db *badger.DB) {
 
 				var updated = 0
 				err = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(cmd.Args[1])
+					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err != nil {
 						updated = 0
 						return nil
@@ -441,7 +509,7 @@ func Serve(db *badger.DB) {
 					}
 
 					// Set the new key
-					e := badger.NewEntry(cmd.Args[2], valCopy).WithTTL(time.Duration(seconds) * time.Second)
+					e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy).WithTTL(time.Duration(seconds) * time.Second)
 					err = txn.SetEntry(e)
 					return err
 				})
