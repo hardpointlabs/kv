@@ -155,6 +155,9 @@ func Serve(db *badger.DB) {
 					conn.WriteBulkString(infoString)
 					return
 				}
+			case "bgsave":
+				// no-op for us
+				conn.WriteString("OK")
 			case "flushall":
 				err := db.DropAll()
 				if err != nil {
