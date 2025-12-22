@@ -45,6 +45,15 @@ func (ll *linkedList) addFirst(value []byte) uint32 {
 	return ll.size
 }
 
+func (ll *linkedList) addLast(value []byte) uint32 {
+	currentTail := ll.tail
+	newTail := &listNode{sentinel: ll, key: randomKey(), prev: currentTail, value: value}
+	currentTail.next = newTail
+	ll.tail = newTail
+	ll.size++
+	return ll.size
+}
+
 func (ll *linkedList) toEntry(conn redcon.Conn) *badger.Entry {
 	return newSentinelNode(conn, ll.name, ll.head.key, ll.tail.key)
 }
