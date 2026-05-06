@@ -14,6 +14,7 @@ import (
 
 var addr = ":6379"
 
+// key delimeters
 const internalPrefix = "-"
 const prefixSeparator = ":"
 
