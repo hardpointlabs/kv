@@ -9,7 +9,7 @@ Directory layout follows golang packaging norms (it's module-based), save for th
 - `core` package: core types
 - `redis` package: main implementation code for the Redis listener. Relies on github.com/tidwall/redcon for Redis wire command [de]serialization and BadgerDB (https://github.com/dgraph-io/badger) for the actual long term persistence. This package therefore destructures Redis command data into individual keys that are stored in BadgerDB, and then looked up & translated back into Redis responses. See the later section about 'redis key structure'.
 - `mongo` package: experimental. ignore this for now
-- `test`: an unfinished test suite that expects the `kv` daemon to be running, while deno brings up a Redis client and runs through a set of Redis commands with known expected responses, and evaluates the correctness of what comes back to the client. Needs implementing.
+- `test`: a test suite where Deno boots a test script containing a Redis client, and runs through a set of Redis commands with known expected responses, and evaluates the correctness of what comes back to the client.
 
 ## Development
 
@@ -24,6 +24,11 @@ The modules should be periodically updated:
 To build, simply `go build .`. At this time there are no non-standard build flags.
 
 To run, simply invoke the resulting executable: `./kv` (which will spin up a daemon listening on `:6379`)
+
+## Test
+
+* To run all unit tests, run `go test ./...`
+* To run the integration tests, run `./run-tests.sh` from the project root
 
 ## Redis key structure
 
