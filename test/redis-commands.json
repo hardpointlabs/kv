@@ -1,0 +1,375 @@
+[
+  {
+    "name": "PING",
+    "command": ["PING"],
+    "expected": "PONG",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Ping the server"
+  },
+  {
+    "name": "SET and GET",
+    "command": ["SET", "testkey1", "testvalue1"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Set a key"
+  },
+  {
+    "name": "GET existing key",
+    "command": ["GET", "testkey1"],
+    "expected": "testvalue1",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get an existing key",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "GET non-existing key",
+    "command": ["GET", "nonexistent"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "Get a non-existing key"
+  },
+  {
+    "name": "DEL existing key",
+    "command": ["DEL", "testkey1"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Delete an existing key",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "DEL non-existing key",
+    "command": ["DEL", "nonexistent"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Delete a non-existing key"
+  },
+  {
+    "name": "EXISTS existing key",
+    "command": ["EXISTS", "testkey1"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Check if key exists",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "EXISTS non-existing key",
+    "command": ["EXISTS", "nonexistent"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Check if non-existing key exists"
+  },
+  {
+    "name": "INCR",
+    "command": ["INCR", "counter1"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Increment a counter"
+  },
+  {
+    "name": "INCR existing counter",
+    "command": ["INCR", "counter1"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Increment existing counter",
+    "setup": [["SET", "counter1", "1"]]
+  },
+  {
+    "name": "DECR",
+    "command": ["DECR", "counter2"],
+    "expected": -1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Decrement a counter"
+  },
+  {
+    "name": "DECR existing counter",
+    "command": ["DECR", "counter2"],
+    "expected": -2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Decrement existing counter",
+    "setup": [["SET", "counter2", "-1"]]
+  },
+  {
+    "name": "INCRBY",
+    "command": ["INCRBY", "counter3", "5"],
+    "expected": 5,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Increment by value",
+    "setup": [["SET", "counter3", "0"]]
+  },
+  {
+    "name": "DECRBY",
+    "command": ["DECRBY", "counter4", "3"],
+    "expected": -3,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Decrement by value",
+    "setup": [["SET", "counter4", "0"]]
+  },
+  {
+    "name": "SETNX new key",
+    "command": ["SETNX", "nxkey1", "nxvalue1"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Set if not exists - new key"
+  },
+  {
+    "name": "SETNX existing key",
+    "command": ["SETNX", "nxkey1", "nxvalue2"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Set if not exists - existing key",
+    "setup": [["SET", "nxkey1", "nxvalue1"]]
+  },
+  {
+    "name": "SETEX",
+    "command": ["SETEX", "exkey1", "10", "exvalue1"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "2.0.0",
+    "description": "Set with expiration"
+  },
+  {
+    "name": "TTL existing key with expiry",
+    "command": ["TTL", "exkey1"],
+    "expected": "> -1",
+    "type": "integer_gt",
+    "version": "1.0.0",
+    "description": "Get TTL of key with expiry",
+    "setup": [["SETEX", "exkey1", "10", "exvalue1"]]
+  },
+  {
+    "name": "TTL non-existing key",
+    "command": ["TTL", "nonexistent"],
+    "expected": -2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Get TTL of non-existing key"
+  },
+  {
+    "name": "PTTL existing key with expiry",
+    "command": ["PTTL", "exkey1"],
+    "expected": "> -1",
+    "type": "integer_gt",
+    "version": "2.6.0",
+    "description": "Get PTTL of key with expiry",
+    "setup": [["SETEX", "exkey1", "10", "exvalue1"]]
+  },
+  {
+    "name": "TYPE string",
+    "command": ["TYPE", "testkey1"],
+    "expected": "string",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get type of string key",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "TYPE non-existing key",
+    "command": ["TYPE", "nonexistent"],
+    "expected": "none",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get type of non-existing key"
+  },
+  {
+    "name": "GETSET",
+    "command": ["GETSET", "gskey1", "newvalue"],
+    "expected": null,
+    "type": "null_or_bulk",
+    "version": "1.0.0",
+    "description": "Get and set - non-existing key"
+  },
+  {
+    "name": "GETSET existing key",
+    "command": ["GETSET", "gskey1", "newvalue2"],
+    "expected": "newvalue",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get and set - existing key",
+    "setup": [["SET", "gskey1", "newvalue"]]
+  },
+  {
+    "name": "STRLEN",
+    "command": ["STRLEN", "testkey1"],
+    "expected": 10,
+    "type": "integer",
+    "version": "2.2.0",
+    "description": "Get string length",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "STRLEN non-existing key",
+    "command": ["STRLEN", "nonexistent"],
+    "expected": 0,
+    "type": "integer",
+    "version": "2.2.0",
+    "description": "Get string length of non-existing key"
+  },
+  {
+    "name": "SUBSTR",
+    "command": ["SUBSTR", "testkey1", "0", "3"],
+    "expected": "test",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get substring",
+    "setup": [["SET", "testkey1", "testvalue1"]]
+  },
+  {
+    "name": "MGET",
+    "command": ["MGET", "key1", "key2", "key3"],
+    "expected": ["value1", "value2", null],
+    "type": "array",
+    "version": "1.0.0",
+    "description": "Get multiple keys",
+    "setup": [["SET", "key1", "value1"], ["SET", "key2", "value2"]]
+  },
+  {
+    "name": "GETDEL",
+    "command": ["GETDEL", "delkey1"],
+    "expected": "todelete",
+    "type": "bulk_string",
+    "version": "6.2.0",
+    "description": "Get and delete key",
+    "setup": [["SET", "delkey1", "todelete"]]
+  },
+  {
+    "name": "RENAME",
+    "command": ["RENAME", "oldkey", "newkey"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Rename key",
+    "setup": [["SET", "oldkey", "value"]]
+  },
+  {
+    "name": "RENAMENX new target",
+    "command": ["RENAMENX", "oldkey2", "newkey2"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Rename if not exists - new target",
+    "setup": [["SET", "oldkey2", "value"]]
+  },
+  {
+    "name": "RENAMENX existing target",
+    "command": ["RENAMENX", "oldkey3", "existingkey"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Rename if not exists - existing target",
+    "setup": [["SET", "oldkey3", "value"], ["SET", "existingkey", "value2"]]
+  },
+  {
+    "name": "DBSIZE",
+    "command": ["DBSIZE"],
+    "expected": "> -1",
+    "type": "integer_gt",
+    "version": "1.0.0",
+    "description": "Get database size"
+  },
+  {
+    "name": "SELECT",
+    "command": ["SELECT", "1"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Select database"
+  },
+  {
+    "name": "FLUSHDB",
+    "command": ["FLUSHDB"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Flush current database"
+  },
+  {
+    "name": "FLUSHALL",
+    "command": ["FLUSHALL"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Flush all databases"
+  },
+  {
+    "name": "EXPIRE",
+    "command": ["EXPIRE", "exptest", "10"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Set key expiration",
+    "setup": [["SET", "exptest", "value"]]
+  },
+  {
+    "name": "MOVE",
+    "command": ["MOVE", "movekey", "1"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Move key to another database",
+    "setup": [["SET", "movekey", "value"]]
+  },
+  {
+    "name": "CLIENT ID",
+    "command": ["CLIENT", "ID"],
+    "expected": "> 0",
+    "type": "integer_gt",
+    "version": "5.0.0",
+    "description": "Get client ID"
+  },
+  {
+    "name": "CLIENT INFO",
+    "command": ["CLIENT", "INFO"],
+    "expected": "id=",
+    "type": "bulk_string_startswith",
+    "version": "5.0.0",
+    "description": "Get client info"
+  },
+  {
+    "name": "PING with message",
+    "command": ["PING", "hello"],
+    "expected": "hello",
+    "type": "bulk_string",
+    "version": "1.2.0",
+    "description": "Ping with custom message"
+  },
+  {
+    "name": "BGSAVE",
+    "command": ["BGSAVE"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Background save (no-op in kv)"
+  },
+  {
+    "name": "PUBLISH",
+    "command": ["PUBLISH", "testchannel", "testmessage"],
+    "expected": 0,
+    "type": "integer",
+    "version": "2.0.0",
+    "description": "Publish to channel (no subscribers)"
+  },
+  {
+    "name": "PUBSUB basics",
+    "command": ["PUBLISH", "emptychannel", "message"],
+    "expected": 0,
+    "type": "integer",
+    "version": "2.0.0",
+    "description": "Publish to empty channel"
+  }
+]
