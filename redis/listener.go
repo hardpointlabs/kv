@@ -192,7 +192,11 @@ func Serve(db *badger.DB) {
 				setCurrentDb(conn, dbIndex)
 				conn.WriteString("OK")
 			case "ping":
-				conn.WriteString("PONG")
+				if len(cmd.Args) > 1 {
+					conn.WriteBulkString(string(cmd.Args[1]))
+				} else {
+					conn.WriteString("PONG")
+				}
 			case "quit":
 				conn.WriteString("OK")
 				conn.Close()
