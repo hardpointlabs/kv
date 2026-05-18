@@ -56,6 +56,15 @@ function compareResult(actual: unknown, expected: unknown, type: string): boolea
         }
       }
       return true;
+    case "set":
+      if (!Array.isArray(actual)) return false;
+      if (!Array.isArray(expected)) return actual === expected;
+      if (expected.length !== actual.length) return false;
+      const actualSet = new Set(actual);
+      for (const item of expected) {
+        if (!actualSet.has(item)) return false;
+      }
+      return true;
     default:
       return actual === expected;
   }

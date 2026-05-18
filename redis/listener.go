@@ -667,6 +667,231 @@ func Serve(db *badger.DB) {
 					return
 				}
 				conn.WriteInt(size)
+			case "sadd":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var added int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					added, err = sadd(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(added)
+			case "srem":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var removed int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					removed, err = srem(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(removed)
+			case "scard":
+				if !checkExactArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					count, err := scard(txn, conn, cmd.Args[1])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteInt(count)
+					return nil
+				})
+			case "smembers":
+				if !checkExactArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					members, err := smembers(txn, conn, cmd.Args[1])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(members))
+					for _, m := range members {
+						conn.WriteBulk(m)
+					}
+					return nil
+				})
+			case "sismember":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					ok, err := sismember(txn, conn, cmd.Args[1], cmd.Args[2])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if ok {
+						conn.WriteInt(1)
+					} else {
+						conn.WriteInt(0)
+					}
+					return nil
+				})
+			case "spop":
+				if !checkExactArgs(conn, cmd, 2) {
+					return
+				}
+				var val []byte
+				var dbErr error
+				dbErr = db.Update(func(txn *badger.Txn) error {
+					var err error
+					val, err = spop(txn, conn, cmd.Args[1])
+					return err
+				})
+				if dbErr != nil {
+					conn.WriteError("ERR " + dbErr.Error())
+					return
+				}
+				if val == nil {
+					conn.WriteNull()
+				} else {
+					conn.WriteBulk(val)
+				}
+			case "srandmember":
+				if !checkExactArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					members, err := srandmember(txn, conn, cmd.Args[1], 1)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if len(members) == 0 {
+						conn.WriteNull()
+					} else {
+						conn.WriteBulk(members[0])
+					}
+					return nil
+				})
+			case "smove":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				var moved bool
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					moved, err = smove(txn, conn, cmd.Args[1], cmd.Args[2], cmd.Args[3])
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				if moved {
+					conn.WriteInt(1)
+				} else {
+					conn.WriteInt(0)
+				}
+			case "sdiff":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := sdiff(txn, conn, cmd.Args[1:]...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, m := range result {
+						conn.WriteBulk(m)
+					}
+					return nil
+				})
+			case "sinter":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := sinter(txn, conn, cmd.Args[1:]...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, m := range result {
+						conn.WriteBulk(m)
+					}
+					return nil
+				})
+			case "sunion":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := sunion(txn, conn, cmd.Args[1:]...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, m := range result {
+						conn.WriteBulk(m)
+					}
+					return nil
+				})
+			case "sdiffstore":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var count int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					count, err = sdiffstore(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(count)
+			case "sinterstore":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var count int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					count, err = sinterstore(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(count)
+			case "sunionstore":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var count int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					count, err = sunionstore(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(count)
 			case "publish":
 				if !checkExactArgs(conn, cmd, 3) {
 					return

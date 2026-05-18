@@ -562,5 +562,199 @@
     "version": "2.0.0",
     "description": "Insert element before non-existing pivot",
     "setup": [["RPUSH", "mylist16", "a", "b"]]
+  },
+  {
+    "name": "SADD",
+    "command": ["SADD", "set_test1", "a", "b", "c"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Add members to a set"
+  },
+  {
+    "name": "SADD duplicate",
+    "command": ["SADD", "set_test1", "a"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Add duplicate member returns 0",
+    "setup": [["SADD", "set_test1", "a"]]
+  },
+  {
+    "name": "SCARD",
+    "command": ["SCARD", "set_test2"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Get cardinality of a set",
+    "setup": [["SADD", "set_test2", "x", "y", "z"]]
+  },
+  {
+    "name": "SCARD non-existing",
+    "command": ["SCARD", "set_nonexistent"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Cardinality of non-existing set"
+  },
+  {
+    "name": "SISMEMBER existing",
+    "command": ["SISMEMBER", "set_test3", "hello"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Check if member exists",
+    "setup": [["SADD", "set_test3", "hello", "world"]]
+  },
+  {
+    "name": "SISMEMBER non-existing",
+    "command": ["SISMEMBER", "set_test3", "missing"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Check if non-existing member exists",
+    "setup": [["SADD", "set_test3", "hello", "world"]]
+  },
+  {
+    "name": "SREM",
+    "command": ["SREM", "set_test4", "a", "b"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Remove members from set",
+    "setup": [["SADD", "set_test4", "a", "b", "c"]]
+  },
+  {
+    "name": "SMEMBERS",
+    "command": ["SMEMBERS", "set_test5"],
+    "expected": ["a", "b", "c"],
+    "type": "set",
+    "version": "1.0.0",
+    "description": "Get all members of a set",
+    "setup": [["SADD", "set_test5", "a", "b", "c"]]
+  },
+  {
+    "name": "SMEMBERS non-existing",
+    "command": ["SMEMBERS", "set_nonexistent2"],
+    "expected": [],
+    "type": "array",
+    "version": "1.0.0",
+    "description": "Get members of non-existing set"
+  },
+  {
+    "name": "SPOP",
+    "command": ["SPOP", "set_test6"],
+    "expected": "onlymember",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Pop random member from set",
+    "setup": [["SADD", "set_test6", "onlymember"]]
+  },
+  {
+    "name": "SPOP empty set",
+    "command": ["SPOP", "set_empty"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "Pop from empty set"
+  },
+  {
+    "name": "SRANDMEMBER",
+    "command": ["SRANDMEMBER", "set_test7"],
+    "expected": "someval",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get random member from set",
+    "setup": [["SADD", "set_test7", "someval"]]
+  },
+  {
+    "name": "SMOVE",
+    "command": ["SMOVE", "src_set", "dst_set", "moveme"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Move member between sets",
+    "setup": [["SADD", "src_set", "moveme", "keep"], ["SADD", "dst_set", "dstval"]]
+  },
+  {
+    "name": "SMOVE non-existing source",
+    "command": ["SMOVE", "src_nonexistent", "dst_set2", "x"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "SMOVE with non-existing source",
+    "setup": [["SADD", "dst_set2", "a"]]
+  },
+  {
+    "name": "SDIFF",
+    "command": ["SDIFF", "sdiff_a", "sdiff_b"],
+    "expected": ["a", "b"],
+    "type": "set",
+    "version": "1.0.0",
+    "description": "Difference of two sets",
+    "setup": [["SADD", "sdiff_a", "a", "b", "c", "d"], ["SADD", "sdiff_b", "c", "d", "e"]]
+  },
+  {
+    "name": "SINTER",
+    "command": ["SINTER", "sinter_a", "sinter_b"],
+    "expected": ["c", "d"],
+    "type": "set",
+    "version": "1.0.0",
+    "description": "Intersection of two sets",
+    "setup": [["SADD", "sinter_a", "a", "b", "c", "d"], ["SADD", "sinter_b", "c", "d", "e", "f"]]
+  },
+  {
+    "name": "SUNION",
+    "command": ["SUNION", "sunion_a", "sunion_b"],
+    "expected": ["a", "b", "c", "d"],
+    "type": "set",
+    "version": "1.0.0",
+    "description": "Union of two sets",
+    "setup": [["SADD", "sunion_a", "a", "b"], ["SADD", "sunion_b", "c", "d"]]
+  },
+  {
+    "name": "SDIFFSTORE",
+    "command": ["SDIFFSTORE", "sdiffstore_dest", "sdiffstore_a", "sdiffstore_b"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Store difference of sets",
+    "setup": [["SADD", "sdiffstore_a", "a", "b", "c"], ["SADD", "sdiffstore_b", "c"]]
+  },
+  {
+    "name": "SINTERSTORE",
+    "command": ["SINTERSTORE", "sinterstore_dest", "sinterstore_a", "sinterstore_b"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Store intersection of sets",
+    "setup": [["SADD", "sinterstore_a", "a", "b", "c"], ["SADD", "sinterstore_b", "b", "c", "d"]]
+  },
+  {
+    "name": "SUNIONSTORE",
+    "command": ["SUNIONSTORE", "sunionstore_dest", "sunionstore_a", "sunionstore_b"],
+    "expected": 4,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Store union of sets",
+    "setup": [["SADD", "sunionstore_a", "a", "b"], ["SADD", "sunionstore_b", "c", "d"]]
+  },
+  {
+    "name": "SET TYPE via TYPE command",
+    "command": ["TYPE", "set_type_test"],
+    "expected": "set",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "TYPE returns 'set' for set keys",
+    "setup": [["SADD", "set_type_test", "val"]]
+  },
+  {
+    "name": "SET EXISTS",
+    "command": ["EXISTS", "set_exists_test"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "EXISTS works on set keys",
+    "setup": [["SADD", "set_exists_test", "val"]]
   }
 ]
