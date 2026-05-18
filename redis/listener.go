@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/tidwall/redcon"
@@ -151,9 +150,21 @@ func moveKey(conn redcon.Conn, db *badger.DB, key []byte, targetDb int) {
 func incrementKey(conn redcon.Conn, db *badger.DB, key []byte, amount int64) {
 	_ = db.Update(func(txn *badger.Txn) error {
 		var currentValue int64 = 0
+		var meta byte = byte(RedisString)
 		item, err := txn.Get(rawKeyPrefix(key, currentDb(conn)))
 		if err != nil {
-			conn.WriteNull()
+			if err != badger.ErrKeyNotFound {
+				conn.WriteError("ERR " + err.Error())
+				return err
+			}
+			currentValue = amount
+			entry := badger.NewEntry(rawKeyPrefix(key, currentDb(conn)), []byte(strconv.FormatInt(currentValue, 10))).WithMeta(meta)
+			err = txn.SetEntry(entry)
+			if err != nil {
+				conn.WriteError("ERR " + err.Error())
+				return err
+			}
+			conn.WriteInt64(currentValue)
 			return nil
 		}
 
@@ -194,8 +205,7 @@ func Serve(db *badger.DB) {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
 			case "select":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
 				dbIndex, err := strconv.Atoi(string(cmd.Args[1]))
@@ -264,580 +274,146 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "exists":
-				if len(cmd.Args) < 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 2) {
 					return
 				}
-				var count = 0
-				err := db.View(func(txn *badger.Txn) error {
-					for _, key := range cmd.Args[1:] {
-						_, err := txn.Get(rawKeyPrefix(key, currentDb(conn)))
-						if err == nil {
-							count++
-						} else if err != badger.ErrKeyNotFound {
-							return err
-						}
-					}
-					return nil
-				})
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
-					return
-				}
-				conn.WriteInt(count)
+				existsKeys(conn, db, cmd.Args[1:]...)
 			case "set":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				err := db.Update(func(txn *badger.Txn) error {
-					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithMeta(byte(RedisString))
-					err := txn.SetEntry(e)
-					return err
-				})
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
-					return
-				}
-
-				conn.WriteString("OK")
+				setKey(conn, db, cmd.Args[1], cmd.Args[2])
 			case "setex":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				i, err := strconv.Atoi(string(cmd.Args[3]))
-				if err != nil {
-					conn.WriteError("Error")
+				sec, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-
-				expTime := time.Duration(i) * time.Second
-				err = db.Update(func(txn *badger.Txn) error {
-					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithTTL(expTime).WithMeta(byte(RedisString))
-					err := txn.SetEntry(e)
-					return err
-				})
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
-					return
-				}
-
-				conn.WriteString("OK")
+				setKeyWithTTL(conn, db, cmd.Args[1], cmd.Args[3], sec)
 			case "strlen":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteInt(0)
-						return nil
-					}
-					if item.UserMeta() != byte(RedisString) {
-						conn.WriteError("WRONGTYPE Operation against a key holding the wrong kind of value")
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-					conn.WriteInt(len(valCopy))
-					return nil
-				})
+				strlenKey(conn, db, cmd.Args[1])
 			case "substr":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				start, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-				end, err := strconv.Atoi(string(cmd.Args[3]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				end, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
 					return
 				}
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteNull()
-						return nil
-					}
-					if item.UserMeta() != byte(RedisString) {
-						conn.WriteError("WRONGTYPE Operation against a key holding the wrong kind of value")
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return nil
-					}
-					if start < 0 {
-						start = len(valCopy) + start
-					}
-					if end < 0 {
-						end = len(valCopy) + end
-					}
-					if start < 0 {
-						start = 0
-					}
-					if end >= len(valCopy) {
-						end = len(valCopy) - 1
-					}
-					if start > end || start >= len(valCopy) {
-						conn.WriteBulk([]byte{})
-						return nil
-					}
-					conn.WriteBulk(valCopy[start : end+1])
-					return nil
-				})
+				substrKey(conn, db, cmd.Args[1], start, end)
 			case "get":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteNull()
-						return nil
-					}
-					if item.UserMeta() != byte(RedisString) {
-						conn.WriteError("WRONGTYPE Operation against a key holding the wrong kind of value")
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-					conn.WriteBulk(valCopy)
-					return nil
-				})
+				getKey(conn, db, cmd.Args[1])
 			case "mget":
-				if len(cmd.Args) < 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 2) {
 					return
 				}
 				getKeys(conn, db, cmd.Args[1:]...)
 			case "getset":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						// Key does not exist, just set the new value
-						e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithMeta(byte(RedisString))
-						err = txn.SetEntry(e)
-						if err != nil {
-							conn.WriteError("ERR " + err.Error())
-							return err
-						}
-						conn.WriteNull()
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-
-					// Set the new value
-					e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithMeta(byte(RedisString))
-					err = txn.SetEntry(e)
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-					conn.WriteBulk(valCopy)
-					return nil
-				})
+				getSet(conn, db, cmd.Args[1], cmd.Args[2])
 			case "getdel":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteNull()
-						return nil
-					}
-					if item.UserMeta() != byte(RedisString) {
-						conn.WriteError("WRONGTYPE Operation against a key holding the wrong kind of value")
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-
-					err = txn.Delete(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						log.Println("getdel error:", err)
-						conn.WriteNull()
-						return nil
-					}
-					conn.WriteBulk(valCopy)
-					return nil
-				})
+				getDel(conn, db, cmd.Args[1])
 			case "move":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-
-				targetDb, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil || targetDb < 0 {
+				targetDb, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok || targetDb < 0 {
 					conn.WriteError("ERR invalid DB index")
 					return
 				}
-
 				moveKey(conn, db, cmd.Args[1], targetDb)
 			case "rename":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-
-				_ = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteError("ERR no such key")
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-
-					// Set the new key
-					e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy).WithMeta(item.UserMeta())
-					err = txn.SetEntry(e)
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-
-					// Delete the old key
-					err = txn.Delete(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return err
-					}
-
-					conn.WriteString("OK")
-					return nil
-				})
+				renameKey(conn, db, cmd.Args[1], cmd.Args[2])
 			case "renamenx":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				_ = db.Update(func(txn *badger.Txn) error {
-					var renamed = false
-					_, err := txn.Get(rawKeyPrefix(cmd.Args[2], currentDb(conn)))
-					if err != nil {
-						if err == badger.ErrKeyNotFound {
-							item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-							if err != nil {
-								conn.WriteError("no such key")
-								return nil
-							}
-							var valCopy []byte
-							err = item.Value(func(val []byte) error {
-								valCopy = append([]byte{}, val...)
-								return nil
-							})
-							if err != nil {
-								log.Println("fdsdfdsfsd")
-								conn.WriteError("ERR " + err.Error())
-								return err
-							}
-							// Set the new key
-							e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy).WithMeta(item.UserMeta())
-							err = txn.SetEntry(e)
-							if err != nil {
-								log.Println("something hello")
-								conn.WriteError("ERR " + err.Error())
-								return err
-							}
-							// Delete the old key
-							err = txn.Delete(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-							if err != nil {
-								log.Println("I dunnot, tried to delete")
-								conn.WriteError("ERR " + err.Error())
-								return err
-							}
-							renamed = true
-						} else {
-							return err
-						}
-					}
-
-					if renamed {
-						conn.WriteInt(1)
-					} else {
-						conn.WriteInt(0)
-					}
-					return nil
-				})
+				renameNXKey(conn, db, cmd.Args[1], cmd.Args[2])
 			case "setnx":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-
-				_ = db.Update(func(txn *badger.Txn) error {
-					var set = false
-					_, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					log.Println(string(cmd.Args[1]))
-					if err != nil {
-						// key does not exist, set it
-						if err == badger.ErrKeyNotFound {
-							e := badger.NewEntry(rawKeyPrefix(cmd.Args[1], currentDb(conn)), cmd.Args[2]).WithMeta(byte(RedisString))
-							err = txn.SetEntry(e)
-							if err != nil {
-								return err
-							}
-							set = true
-						} else {
-							return err
-						}
-					}
-
-					if err != nil {
-						conn.WriteError("ERR " + err.Error())
-						return nil
-					}
-					if set {
-						conn.WriteInt(1)
-					} else {
-						conn.WriteInt(0)
-					}
-					return nil
-				})
+				setNX(conn, db, cmd.Args[1], cmd.Args[2])
 			case "pttl":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						if err == badger.ErrKeyNotFound {
-							conn.WriteInt(-2)
-							return nil
-						}
-						conn.WriteError("ERR " + err.Error())
-						return nil
-					}
-					ttl := item.ExpiresAt()
-					// redis expects the TTL in seconds
-					now := uint64(time.Now().UnixNano() / 1e6)
-					remaining := int64(ttl) - int64(now)
-					if remaining <= 0 {
-						conn.WriteInt(-1)
-						return nil
-					}
-					conn.WriteInt64(remaining)
-					return nil
-				})
+				pttlKey(conn, db, cmd.Args[1])
 			case "ttl":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						if err == badger.ErrKeyNotFound {
-							conn.WriteInt(-2)
-							return nil
-						}
-						conn.WriteError("ERR " + err.Error())
-						return nil
-					}
-					ttl := item.ExpiresAt()
-					// redis expects the TTL in seconds
-					now := uint64(time.Now().UnixNano() / 1e6)
-					remaining := int64(ttl) - int64(now)
-					if remaining <= 0 {
-						conn.WriteInt(-1)
-						return nil
-					}
-					conn.WriteInt(int(remaining / 1000))
-					return nil
-				})
+				ttlKey(conn, db, cmd.Args[1])
 			case "expire":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				seconds, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				seconds, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-
-				var updated = 0
-				err = db.Update(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						updated = 0
-						return nil
-					}
-					var valCopy []byte
-					err = item.Value(func(val []byte) error {
-						valCopy = append([]byte{}, val...)
-						return nil
-					})
-					if err != nil {
-						return err
-					}
-
-					// Set the new key
-					e := badger.NewEntry(rawKeyPrefix(cmd.Args[2], currentDb(conn)), valCopy).WithTTL(time.Duration(seconds) * time.Second).WithMeta(item.UserMeta())
-					err = txn.SetEntry(e)
-					return err
-				})
-
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
-				}
-				conn.WriteInt(updated)
+				expireKey(conn, db, cmd.Args[1], seconds)
 			case "incr":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-
 				incrementKey(conn, db, cmd.Args[1], 1)
 			case "incrby":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				amount, err := strconv.ParseInt(string(cmd.Args[2]), 10, 64)
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				amount, ok := parseInt64Arg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
 				incrementKey(conn, db, cmd.Args[1], amount)
 			case "decr":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
 				incrementKey(conn, db, cmd.Args[1], -1)
 			case "decrby":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				amount, err := strconv.ParseInt(string(cmd.Args[2]), 10, 64)
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				amount, ok := parseInt64Arg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
 				incrementKey(conn, db, cmd.Args[1], -amount)
 			case "type":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
-
-				_ = db.View(func(txn *badger.Txn) error {
-					item, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
-					if err != nil {
-						if err == badger.ErrKeyNotFound {
-							conn.WriteString("none")
-							return nil
-						}
-						conn.WriteError("ERR " + err.Error())
-						return nil
-					}
-					meta := item.UserMeta()
-					var typeStr string
-					switch redisValueType(meta) {
-					case RedisString:
-						typeStr = "string"
-					case RedisList:
-						typeStr = "list"
-					case RedisSet:
-						typeStr = "set"
-					case RedisSortedSet:
-						typeStr = "zset"
-					case RedisHash:
-						typeStr = "hash"
-					case RedisStream:
-						typeStr = "stream"
-					case RedisVectorSet:
-						typeStr = "vectorset"
-					default:
-						typeStr = "unknown"
-					}
-					conn.WriteString(typeStr)
-					return nil
-				})
+				typeOfKey(conn, db, cmd.Args[1])
 			case "del":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 2) {
 					return
 				}
-				var numUpdated = 0
-				err := db.Update(func(txn *badger.Txn) error {
-					for _, key := range cmd.Args[1:] {
-						err := txn.Delete(rawKeyPrefix(key, currentDb(conn)))
-						if err != nil && err != badger.ErrKeyNotFound {
-							conn.WriteError("ERR " + err.Error())
-							return err
-						}
-						numUpdated++
-					}
-					return nil
-				})
-				if err != nil {
-					conn.WriteError("ERR " + err.Error())
-					return
-				}
-				conn.WriteInt(numUpdated)
+				delKeys(conn, db, cmd.Args[1:]...)
 			case "lpush":
-				if len(cmd.Args) < 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 3) {
 					return
 				}
 				err := db.Update(func(txn *badger.Txn) error {
@@ -858,8 +434,7 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "rpush":
-				if len(cmd.Args) < 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 3) {
 					return
 				}
 				err := db.Update(func(txn *badger.Txn) error {
@@ -880,8 +455,7 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "lpop":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
 				var val []byte
@@ -901,8 +475,7 @@ func Serve(db *badger.DB) {
 					conn.WriteBulk(val)
 				}
 			case "rpop":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
 				var val []byte
@@ -922,8 +495,7 @@ func Serve(db *badger.DB) {
 					conn.WriteBulk(val)
 				}
 			case "llen":
-				if len(cmd.Args) != 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 2) {
 					return
 				}
 				db.View(func(txn *badger.Txn) error {
@@ -936,18 +508,15 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "lrange":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				start, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-				stop, err := strconv.Atoi(string(cmd.Args[3]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				stop, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
 					return
 				}
 				db.View(func(txn *badger.Txn) error {
@@ -963,13 +532,11 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "lindex":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
-				index, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				index, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
 				db.View(func(txn *badger.Txn) error {
@@ -986,16 +553,14 @@ func Serve(db *badger.DB) {
 					return nil
 				})
 			case "lset":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				index, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				index, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-				err = db.Update(func(txn *badger.Txn) error {
+				err := db.Update(func(txn *badger.Txn) error {
 					return lset(txn, conn, cmd.Args[1], index, cmd.Args[3])
 				})
 				if err != nil {
@@ -1008,17 +573,16 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteString("OK")
 			case "lrem":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				count, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				count, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
 				var removed int
-				err = db.Update(func(txn *badger.Txn) error {
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
 					removed, err = lrem(txn, conn, cmd.Args[1], count, cmd.Args[3])
 					return err
 				})
@@ -1028,21 +592,18 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteInt(removed)
 			case "ltrim":
-				if len(cmd.Args) != 4 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 4) {
 					return
 				}
-				start, err := strconv.Atoi(string(cmd.Args[2]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
 					return
 				}
-				stop, err := strconv.Atoi(string(cmd.Args[3]))
-				if err != nil {
-					conn.WriteError("ERR value is not an integer or out of range")
+				stop, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
 					return
 				}
-				err = db.Update(func(txn *badger.Txn) error {
+				err := db.Update(func(txn *badger.Txn) error {
 					return ltrim(txn, conn, cmd.Args[1], start, stop)
 				})
 				if err != nil {
@@ -1051,8 +612,7 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteString("OK")
 			case "linsert":
-				if len(cmd.Args) != 5 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 5) {
 					return
 				}
 				before := strings.ToLower(string(cmd.Args[2])) == "before"
@@ -1069,14 +629,12 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteInt(result)
 			case "lpushx":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
 				var size int
 				var dbErr error
 				dbErr = db.Update(func(txn *badger.Txn) error {
-					// Check if list exists
 					_, err := txn.Get(rawKeyPrefix(cmd.Args[1], currentDb(conn)))
 					if err == badger.ErrKeyNotFound {
 						size = 0
@@ -1096,8 +654,7 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteInt(size)
 			case "rpushx":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
 				var size int
@@ -1122,14 +679,12 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteInt(size)
 			case "publish":
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkExactArgs(conn, cmd, 3) {
 					return
 				}
 				conn.WriteInt(ps.Publish(string(cmd.Args[1]), string(cmd.Args[2])))
 			case "subscribe", "psubscribe":
-				if len(cmd.Args) < 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				if !checkMinArgs(conn, cmd, 2) {
 					return
 				}
 				command := strings.ToLower(string(cmd.Args[0]))

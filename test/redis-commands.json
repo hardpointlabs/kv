@@ -406,12 +406,12 @@
   },
   {
     "name": "LLEN",
-    "command": ["LLEN", "mylist"],
+    "command": ["LLEN", "llenlist"],
     "expected": 1,
     "type": "integer",
     "version": "1.0.0",
     "description": "Get length of list",
-    "setup": [["RPUSH", "mylist", "a"]]
+    "setup": [["RPUSH", "llenlist", "a"]]
   },
   {
     "name": "LLEN non-existing",

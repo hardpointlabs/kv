@@ -745,7 +745,7 @@ func linsert(txn *badger.Txn, conn redcon.Conn, key []byte, before bool, pivot [
 	}
 	ll, err := loadList(txn, key, dbSlot)
 	if err == badger.ErrKeyNotFound {
-		return -2, nil // Redis returns -2 if list doesn't exist
+		return -1, nil
 	}
 	if err != nil {
 		return 0, err
@@ -786,7 +786,7 @@ func linsert(txn *badger.Txn, conn redcon.Conn, key []byte, before bool, pivot [
 	}
 
 	if !found {
-		return -2, nil
+		return -1, nil
 	}
 
 	return int(ll.size), persistList(txn, ll, dbSlot)

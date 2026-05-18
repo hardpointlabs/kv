@@ -133,7 +133,7 @@ async function executeCommand(client: RedisClientType, cmd: string[]): Promise<u
       case "renamenx":
         try {
           const result = await client.sendCommand(["RENAMENX", ...args]);
-          return result === "OK" ? 1 : 0;
+          return result === 1 ? 1 : 0;
         } catch {
           return 0;
         }
