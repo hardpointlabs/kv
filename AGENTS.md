@@ -25,6 +25,14 @@ To build, simply `go build .`. At this time there are no non-standard build flag
 
 To run, simply invoke the resulting executable: `./kv` (which will spin up a daemon listening on `:6379`)
 
+Before committing, run staticcheck to catch code quality regressions:
+
+`./run-staticcheck.sh`
+
+This compares current staticcheck output against the baseline in `.staticcheck.baseline`. Any new issues (not present in the baseline) will cause it to fail. To update the baseline (e.g. after cleaning up an existing issue), run:
+
+`staticcheck ./... > .staticcheck.baseline`
+
 ## Test
 
 * To run all unit tests, run `go test ./...`

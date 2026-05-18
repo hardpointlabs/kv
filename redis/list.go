@@ -203,7 +203,7 @@ func loadList(txn *badger.Txn, listName []byte, dbSlot int) (*linkedList, error)
 
 	// Traverse from head
 	currentKey := headKey
-	for currentKey != nil && len(currentKey) > 0 {
+	for len(currentKey) > 0 {
 		keyStr := string(currentKey)
 		if _, exists := nodeMap[keyStr]; exists {
 			break // cycle detection
