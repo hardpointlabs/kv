@@ -25,7 +25,7 @@ To build, simply `go build .`. At this time there are no non-standard build flag
 
 To run, simply invoke the resulting executable: `./kv` (which will spin up a daemon listening on `:6379`)
 
-Before committing, run staticcheck to catch code quality regressions:
+Before committing, first run staticcheck to catch code quality regressions:
 
 `./run-staticcheck.sh`
 
@@ -33,10 +33,14 @@ This compares current staticcheck output against the baseline in `.staticcheck.b
 
 `staticcheck ./... > .staticcheck.baseline`
 
+Then ensure all the tests pass as outlined below.
+
 ## Test
 
 * To run all unit tests, run `go test ./...`
 * To run the integration tests, run `./run-tests.sh` from the project root
+
+If the kv executable is hanging for some reason (e.g. resource contention, typo causing infinite loop, e.t.c) you can use the `pprof` tool that's built into go as outlined in the [`net/http/pprof`](https://pkg.go.dev/net/http/pprof) docs and the main [pprof](https://github.com/google/pprof) docs to pinpoint execution points in the program. The pprof HTTP handler listens on `localhost:6060`.
 
 ## Redis key structure
 
