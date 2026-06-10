@@ -1,6 +1,12 @@
 # KV
 
-This is a lightweight daemon acting as a Redis (and in the future, possibly Mongo)-compatible database. There are some ways this intentionally diverges from the reference implementation of these DBs:
+This is a lightweight daemon acting as a NoSQL document database, with protocol support for some well-known data stores.
+
+## Redis compatibility
+
+See the [compatibility](./COMPATIBILITY.md) docs for more details.
+
+## Design goals
 
 * Everything is persisted as keys in BadgerDB under the hood (a fast LSM-tree-based, ACID-compliant key store written in pure Go).
 * It's not expected that this runs in a cluster: one daemon, one database

@@ -7,7 +7,6 @@ Hardpoint KV is a data store that runs as a standalone daemon and supports the R
 Directory layout follows golang packaging norms (it's module-based), save for the integration tests.
 
 - `context`: discussions and references to external material concerning the operating design of various functions in this package. these generally relate to the nature of Redis implementations of various feature-sets and the challenges of building functional parity using LSM trees (especially concerning BadgerDB since that's what we're using as a foundation)
-- `core` package: core types
 - `redis` package: main implementation code for the Redis listener. Relies on github.com/tidwall/redcon for Redis wire command [de]serialization and BadgerDB (https://github.com/dgraph-io/badger) for the actual long term persistence. This package therefore destructures Redis command data into individual keys that are stored in BadgerDB, and then looked up & translated back into Redis responses. See the later section about 'redis key structure'.
 - `mongo` package: experimental. ignore this for now
 - `test`: a test suite where Deno boots a test script containing a Redis client, and runs through a set of Redis commands with known expected responses, and evaluates the correctness of what comes back to the client.
@@ -35,6 +34,8 @@ This compares current staticcheck output against the baseline in `.staticcheck.b
 `staticcheck ./... > .staticcheck.baseline`
 
 Then ensure all the tests pass as outlined below.
+
+If you have implemented a new command(s), check the `COMPATIBILITY.md` table and update it accordingly.
 
 ## Test
 
