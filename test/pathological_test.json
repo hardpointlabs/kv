@@ -1,0 +1,436 @@
+[
+  {
+    "name": "SET empty string value",
+    "command": ["JSON.SET", "path_empty", "$", "\"\""],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Set an empty string as root value"
+  },
+  {
+    "name": "GET empty string",
+    "command": ["JSON.GET", "path_empty", "$"],
+    "expected": "\"\"",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Get back an empty string",
+    "setup": [["JSON.SET", "path_empty", "$", "\"\""]]
+  },
+  {
+    "name": "SET empty object",
+    "command": ["JSON.SET", "path_eobj", "$", "{}"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Set empty object root"
+  },
+  {
+    "name": "GET empty object",
+    "command": ["JSON.GET", "path_eobj", "$"],
+    "expected": "{}",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_eobj", "$", "{}"]]
+  },
+  {
+    "name": "SET empty array",
+    "command": ["JSON.SET", "path_earr", "$", "[]"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET empty array",
+    "command": ["JSON.GET", "path_earr", "$"],
+    "expected": "[]",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_earr", "$", "[]"]]
+  },
+  {
+    "name": "SET null root value",
+    "command": ["JSON.SET", "path_nullroot", "$", "null"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET null root value",
+    "command": ["JSON.GET", "path_nullroot", "$"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "node-redis returns null for bulk string 'null'",
+    "setup": [["JSON.SET", "path_nullroot", "$", "null"]]
+  },
+  {
+    "name": "SET with unicode keys",
+    "command": ["JSON.SET", "path_unicode", "$.名前", "\"田中\""],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Japanese characters in keys and values"
+  },
+  {
+    "name": "GET unicode key",
+    "command": ["JSON.GET", "path_unicode", "$.名前"],
+    "expected": "\"田中\"",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_unicode", "$.名前", "\"田中\""]]
+  },
+  {
+    "name": "SET with emoji in value",
+    "command": ["JSON.SET", "path_emoji", "$.status", "\"🚀🎉✨\""],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET emoji value",
+    "command": ["JSON.GET", "path_emoji", "$.status"],
+    "expected": "\"🚀🎉✨\"",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_emoji", "$.status", "\"🚀🎉✨\""]]
+  },
+  {
+    "name": "SET numeric precision MAX_SAFE_INTEGER",
+    "command": ["JSON.SET", "path_bignum", "$.x", "9007199254740991"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Number at JS MAX_SAFE_INTEGER"
+  },
+  {
+    "name": "GET MAX_SAFE_INTEGER",
+    "command": ["JSON.GET", "path_bignum", "$.x"],
+    "expected": "9007199254740991",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_bignum", "$.x", "9007199254740991"]]
+  },
+  {
+    "name": "SET negative number",
+    "command": ["JSON.SET", "path_neg", "$", "-42"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET negative number",
+    "command": ["JSON.GET", "path_neg", "$"],
+    "expected": "-42",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_neg", "$", "-42"]]
+  },
+  {
+    "name": "SET zero value",
+    "command": ["JSON.SET", "path_zero", "$", "0"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET zero value",
+    "command": ["JSON.GET", "path_zero", "$"],
+    "expected": "0",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_zero", "$", "0"]]
+  },
+  {
+    "name": "SET small float",
+    "command": ["JSON.SET", "path_float", "$.pi", "3.141592653589793"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "Float with many decimal places"
+  },
+  {
+    "name": "GET small float",
+    "command": ["JSON.GET", "path_float", "$.pi"],
+    "expected": "3.141592653589793",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_float", "$.pi", "3.141592653589793"]]
+  },
+  {
+    "name": "SET array with mixed types",
+    "command": ["JSON.SET", "path_mixarr", "$", "[1,\"two\",true,null,{\"k\":3}]"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0"
+  },
+  {
+    "name": "GET array with mixed types",
+    "command": ["JSON.GET", "path_mixarr", "$"],
+    "expected": "[1,\"two\",true,null,{\"k\":3}]",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_mixarr", "$", "[1,\"two\",true,null,{\"k\":3}]"]]
+  },
+  {
+    "name": "SET overwrites array with object",
+    "command": ["JSON.SET", "path_typechg", "$", "{}"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_typechg", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "SET overwrites object with array",
+    "command": ["JSON.SET", "path_typechg2", "$", "[]"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_typechg2", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "SET replaces primitive with object",
+    "command": ["JSON.SET", "path_primg", "$", "{\"nested\":true}"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_primg", "$", "42"]]
+  },
+  {
+    "name": "DEL non-existent path returns 0",
+    "command": ["JSON.DEL", "path_delnone", "$.nope"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_delnone", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "DEL multiple paths",
+    "command": ["JSON.DEL", "path_delmulti", "$.a", "$.b", "$.c"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_delmulti", "$", "{\"a\":1,\"b\":2,\"c\":3}"]]
+  },
+  {
+    "name": "DEL root key via key-only",
+    "command": ["JSON.DEL", "path_delroot"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "JSON.DEL with only key name (no path) deletes the whole key",
+    "setup": [["JSON.SET", "path_delroot", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "ARRAPPEND to non-existent path creates array",
+    "command": ["JSON.ARRAPPEND", "path_noarr", "$.items", "1", "2", "3"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "Our impl creates array if path doesn't exist",
+    "setup": [["JSON.SET", "path_noarr", "$", "{}"]]
+  },
+  {
+    "name": "ARRAPPEND with null elements",
+    "command": ["JSON.ARRAPPEND", "path_nullarr", "$.items", "null", "null"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_nullarr", "$", "{\"items\":[]}"]]
+  },
+  {
+    "name": "NUMINCRBY on non-existent path sets to delta",
+    "command": ["JSON.NUMINCRBY", "path_nonum", "$.count", "1"],
+    "expected": "1",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Our impl treats missing as 0 and adds delta",
+    "setup": [["JSON.SET", "path_nonum", "$", "{}"]]
+  },
+  {
+    "name": "NUMINCRBY by zero returns same value",
+    "command": ["JSON.NUMINCRBY", "path_zeroincr", "$.x", "0"],
+    "expected": "10",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_zeroincr", "$", "{\"x\":10}"]]
+  },
+  {
+    "name": "NUMINCRBY negative increment",
+    "command": ["JSON.NUMINCRBY", "path_negincr", "$.x", "-5"],
+    "expected": "5",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_negincr", "$", "{\"x\":10}"]]
+  },
+  {
+    "name": "NUMINCRBY decimal increment",
+    "command": ["JSON.NUMINCRBY", "path_decincr", "$.x", "0.5"],
+    "expected": "3.5",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Non-integer increment preserves fractional part",
+    "setup": [["JSON.SET", "path_decincr", "$", "{\"x\":3}"]]
+  },
+  {
+    "name": "OBJKEYS on non-object returns null",
+    "command": ["JSON.OBJKEYS", "path_notobj", "$"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_notobj", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "ARRLEN on non-array returns null",
+    "command": ["JSON.ARRLEN", "path_notarr", "$"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_notarr", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "NUMMULTBY doubles a number",
+    "command": ["JSON.NUMMULTBY", "path_double", "$.x", "2"],
+    "expected": "20",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_double", "$", "{\"x\":10}"]]
+  },
+  {
+    "name": "STRAPPEND appends to string",
+    "command": ["JSON.STRAPPEND", "path_strapp", "$.txt", "\" world\""],
+    "expected": 11,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_strapp", "$", "{\"txt\":\"hello\"}"]]
+  },
+  {
+    "name": "STRLEN returns string length",
+    "command": ["JSON.STRLEN", "path_strlen", "$.txt"],
+    "expected": 5,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_strlen", "$", "{\"txt\":\"hello\"}"]]
+  },
+  {
+    "name": "SET NX creates key (verified via GET)",
+    "command": ["JSON.GET", "path_nxnew_ok", "$"],
+    "expected": "\"first\"",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "Set with NX on new key creates the document",
+    "setup": [["JSON.SET", "path_nxnew_ok", "$", "\"first\"", "NX"]]
+  },
+  {
+    "name": "SET NX on existing key returns null",
+    "command": ["JSON.SET", "path_nxexisting", "$", "\"second\"", "NX"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_nxexisting", "$", "\"first\""]]
+  },
+  {
+    "name": "SET XX on existing key succeeds",
+    "command": ["JSON.SET", "path_xxexisting", "$", "\"updated\"", "XX"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_xxexisting", "$", "\"original\""]]
+  },
+  {
+    "name": "SET XX on non-existing key returns null",
+    "command": ["JSON.SET", "path_xxnew", "$", "\"value\"", "XX"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0"
+  },
+  {
+    "name": "JSON.ARRPOP pops last element",
+    "command": ["JSON.ARRPOP", "path_arrpop", "$"],
+    "expected": "3",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrpop", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "JSON.ARRPOP with index",
+    "command": ["JSON.ARRPOP", "path_arrpop2", "$", "0"],
+    "expected": "1",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrpop2", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "JSON.ARRPOP from empty array",
+    "command": ["JSON.ARRPOP", "path_arrpop3", "$"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrpop3", "$", "[]"]]
+  },
+  {
+    "name": "JSON.ARRTRIM retains sub-range",
+    "command": ["JSON.ARRTRIM", "path_arrtrim", "$", "1", "2"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "ARRTRIM returns the new array length",
+    "setup": [["JSON.SET", "path_arrtrim", "$", "[0,1,2,3,4]"]]
+  },
+  {
+    "name": "JSON.ARRINSERT at index",
+    "command": ["JSON.ARRINSERT", "path_arrins", "$", "0", "\"z\""],
+    "expected": 4,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrins", "$", "[\"a\",\"b\",\"c\"]"]]
+  },
+  {
+    "name": "JSON.RESP returns RESP representation",
+    "command": ["JSON.RESP", "path_resp", "$"],
+    "expected": ["a", "1"],
+    "type": "array",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_resp", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "JSON.CLEAR clears a path",
+    "command": ["JSON.CLEAR", "path_clear", "$.arr"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "JSON.CLEAR sets array to empty array",
+    "setup": [["JSON.SET", "path_clear", "$", "{\"arr\":[1,2,3]}"]]
+  },
+  {
+    "name": "JSON.ARRINDEX finds element",
+    "command": ["JSON.ARRINDEX", "path_arrfind", "$", "3"],
+    "expected": 2,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrfind", "$", "[1,2,3,4,5]"]]
+  },
+  {
+    "name": "JSON.ARRINDEX element not found",
+    "command": ["JSON.ARRINDEX", "path_arrfind2", "$", "99"],
+    "expected": -1,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_arrfind2", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "JSON.OBJLEN returns field count",
+    "command": ["JSON.OBJLEN", "path_objlen", "$"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_objlen", "$", "{\"a\":1,\"b\":2,\"c\":3}"]]
+  },
+  {
+    "name": "JSON.MGET returns array for matching keys",
+    "command": ["JSON.MGET", "path_mget1", "path_mget2", "$.val"],
+    "expected": ["\"a\"", "\"b\""],
+    "type": "array",
+    "version": "1.0.0",
+    "setup": [["JSON.SET", "path_mget1", "$", "{\"val\":\"a\"}"], ["JSON.SET", "path_mget2", "$", "{\"val\":\"b\"}"]]
+  }
+]

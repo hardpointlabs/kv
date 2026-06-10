@@ -162,6 +162,8 @@ func typeOfKey(conn redcon.Conn, db *badger.DB, key []byte) {
 			typeStr = "vectorset"
 		case RedisBloom:
 			typeStr = "bloom"
+		case RedisJSON:
+			typeStr = "json"
 		default:
 			typeStr = "unknown"
 		}

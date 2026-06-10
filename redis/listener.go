@@ -30,6 +30,7 @@ const (
 	RedisStream
 	RedisVectorSet
 	RedisBloom
+	RedisJSON
 )
 
 func currentDbPrefix(conn redcon.Conn) []byte {
@@ -1126,11 +1127,49 @@ func Serve(db *badger.DB) {
 					}
 					return nil
 				})
-			case "publish":
-				if !checkExactArgs(conn, cmd, 3) {
-					return
-				}
-				conn.WriteInt(ps.Publish(string(cmd.Args[1]), string(cmd.Args[2])))
+		case "json.set":
+			handleJSONSet(conn, db, cmd)
+		case "json.get":
+			handleJSONGet(conn, db, cmd)
+		case "json.del":
+			handleJSONDel(conn, db, cmd)
+		case "json.type":
+			handleJSONType(conn, db, cmd)
+		case "json.arrappend":
+			handleJSONArrAppend(conn, db, cmd)
+		case "json.arrindex":
+			handleJSONArrIndex(conn, db, cmd)
+		case "json.arrlen":
+			handleJSONArrLen(conn, db, cmd)
+		case "json.numincrby":
+			handleJSONNumIncrBy(conn, db, cmd)
+		case "json.nummultby":
+			handleJSONNumMultBy(conn, db, cmd)
+		case "json.objkeys":
+			handleJSONObjKeys(conn, db, cmd)
+		case "json.objlen":
+			handleJSONObjLen(conn, db, cmd)
+		case "json.strappend":
+			handleJSONStrAppend(conn, db, cmd)
+		case "json.strlen":
+			handleJSONStrLen(conn, db, cmd)
+		case "json.mget":
+			handleJSONMGet(conn, db, cmd)
+		case "json.resp":
+			handleJSONResp(conn, db, cmd)
+		case "json.clear":
+			handleJSONClear(conn, db, cmd)
+		case "json.arrpop":
+			handleJSONArrPop(conn, db, cmd)
+		case "json.arrtrim":
+			handleJSONArrTrim(conn, db, cmd)
+		case "json.arrinsert":
+			handleJSONArrInsert(conn, db, cmd)
+		case "publish":
+			if !checkExactArgs(conn, cmd, 3) {
+				return
+			}
+			conn.WriteInt(ps.Publish(string(cmd.Args[1]), string(cmd.Args[2])))
 			case "subscribe", "psubscribe":
 				if !checkMinArgs(conn, cmd, 2) {
 					return

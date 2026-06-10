@@ -900,5 +900,120 @@
     "version": "1.0.0",
     "description": "TYPE returns 'bloom' for bloom filter keys",
     "setup": [["DEL", "bf_type_test"], ["BF.ADD", "bf_type_test", "val"]]
+  },
+  {
+    "name": "JSON.SET creates a JSON document",
+    "command": ["JSON.SET", "jsontest1", "$", "{\"a\":1}"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "JSON.SET with root path"
+  },
+  {
+    "name": "JSON.GET existing key with nested data",
+    "command": ["JSON.GET", "jsontest2", "$"],
+    "expected": "{\"a\":1,\"b\":\"hello\",\"c\":[1,2,3],\"d\":{\"x\":10}}",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.GET returns JSON value",
+    "setup": [["JSON.SET", "jsontest2", "$", "{\"a\":1,\"b\":\"hello\",\"c\":[1,2,3],\"d\":{\"x\":10}}"]]
+  },
+  {
+    "name": "JSON.GET sub-path number",
+    "command": ["JSON.GET", "jsontest2", "$.a"],
+    "expected": "1",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.GET retrieves sub-path value",
+    "setup": [["JSON.SET", "jsontest2", "$", "{\"a\":1}"]]
+  },
+  {
+    "name": "JSON.GET non-existing key",
+    "command": ["JSON.GET", "json_nonexistent", "$"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "JSON.GET returns null for non-existing key"
+  },
+  {
+    "name": "JSON.TYPE number",
+    "command": ["JSON.TYPE", "jsontest_type", "$"],
+    "expected": "number",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.TYPE for a number value",
+    "setup": [["JSON.SET", "jsontest_type", "$", "1"]]
+  },
+  {
+    "name": "JSON.TYPE array",
+    "command": ["JSON.TYPE", "jsontest_type_arr", "$"],
+    "expected": "array",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.TYPE for an array value",
+    "setup": [["JSON.SET", "jsontest_type_arr", "$", "[1,2,3]"]]
+  },
+  {
+    "name": "JSON.TYPE object",
+    "command": ["JSON.TYPE", "jsontest_type_obj", "$"],
+    "expected": "object",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.TYPE for an object value",
+    "setup": [["JSON.SET", "jsontest_type_obj", "$", "{}"]]
+  },
+  {
+    "name": "JSON.TYPE boolean",
+    "command": ["JSON.TYPE", "jsontest_type_bool", "$"],
+    "expected": "boolean",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.TYPE for a boolean value",
+    "setup": [["JSON.SET", "jsontest_type_bool", "$", "true"]]
+  },
+  {
+    "name": "JSON.TYPE null",
+    "command": ["JSON.TYPE", "jsontest_type_null", "$"],
+    "expected": "null",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.TYPE for a null value",
+    "setup": [["JSON.SET", "jsontest_type_null", "$", "null"]]
+  },
+  {
+    "name": "JSON.DEL removes a path",
+    "command": ["JSON.DEL", "jsontest_del", "$.a"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "JSON.DEL removes a key from JSON object",
+    "setup": [["JSON.SET", "jsontest_del", "$", "{\"a\":1,\"b\":2}"]]
+  },
+  {
+    "name": "JSON.ARRLEN returns array length",
+    "command": ["JSON.ARRLEN", "jsontest_arrlen", "$.c"],
+    "expected": 3,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "JSON.ARRLEN on an array path",
+    "setup": [["JSON.SET", "jsontest_arrlen", "$", "{\"c\":[1,2,3]}"]]
+  },
+  {
+    "name": "JSON.OBJKEYS returns object keys",
+    "command": ["JSON.OBJKEYS", "jsontest_objkeys", "$"],
+    "expected": ["a", "b"],
+    "type": "array",
+    "version": "1.0.0",
+    "description": "JSON.OBJKEYS on root path",
+    "setup": [["JSON.SET", "jsontest_objkeys", "$", "{\"a\":1,\"b\":2}"]]
+  },
+  {
+    "name": "JSON.NUMINCRBY increments a number",
+    "command": ["JSON.NUMINCRBY", "jsontest_incr", "$.x", "5"],
+    "expected": "15",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "JSON.NUMINCRBY increments a number path",
+    "setup": [["JSON.SET", "jsontest_incr", "$", "{\"x\":10}"]]
   }
 ]
