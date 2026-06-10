@@ -313,44 +313,6 @@ in this implementation.
 
 ---
 
-## Cluster commands
-
-| Command | Status | Notes |
-|---------|--------|-------|
-| ASKING | 🚫 | |
-| CLUSTER ADDSLOTS | 🚫 | |
-| CLUSTER ADDSLOTSRANGE | 🚫 | |
-| CLUSTER BUMPEPOCH | 🚫 | |
-| CLUSTER COUNT-FAILURE-REPORTS | 🚫 | |
-| CLUSTER COUNTKEYSINSLOT | 🚫 | |
-| CLUSTER DELSLOTS | 🚫 | |
-| CLUSTER DELSLOTSRANGE | 🚫 | |
-| CLUSTER FAILOVER | 🚫 | |
-| CLUSTER FLUSHSLOTS | 🚫 | |
-| CLUSTER FORGET | 🚫 | |
-| CLUSTER GETKEYSINSLOT | 🚫 | |
-| CLUSTER INFO | 🚫 | |
-| CLUSTER KEYSLOT | 🚫 | |
-| CLUSTER LINKS | 🚫 | |
-| CLUSTER MEET | 🚫 | |
-| CLUSTER MIGRATION | 🚫 | |
-| CLUSTER MYID | 🚫 | |
-| CLUSTER MYSHARDID | 🚫 | |
-| CLUSTER NODES | 🚫 | |
-| CLUSTER REPLICAS | 🚫 | |
-| CLUSTER REPLICATE | 🚫 | |
-| CLUSTER RESET | 🚫 | |
-| CLUSTER SAVECONFIG | 🚫 | |
-| CLUSTER SET-CONFIG-EPOCH | 🚫 | |
-| CLUSTER SETSLOT | 🚫 | |
-| CLUSTER SHARDS | 🚫 | |
-| CLUSTER SLAVES | 🚫 | |
-| CLUSTER SLOTS | 🚫 | |
-| READONLY | 🚫 | |
-| READWRITE | 🚫 | |
-
----
-
 ## Generic (keys) commands
 
 | Command | Status | Notes |
