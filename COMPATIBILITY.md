@@ -3,10 +3,19 @@
 Status of all Redis 6.2 core commands (plus JSON and Bloom Filter module commands)
 in this implementation.
 
+**Note!** we have no plans to implement the following command groups:
+
+* Streams
+* Geospatial
+* Cluster
+* Scripting
+
+---
+
 ## Legend
 
 - ✅ — implemented
-- 🚫 — not implemented (missing case in switch or no handler)
+- 🚫 — not implemented
 
 ---
 
@@ -146,33 +155,6 @@ in this implementation.
 | ZUNION | 🚫 | |
 | ZUNIONSTORE | 🚫 | |
 
----
-
-## Stream commands
-
-| Command | Status | Notes |
-|---------|--------|-------|
-| XACK | 🚫 | Not implementing |
-| XADD | 🚫 | Not implementing |
-| XAUTOCLAIM | 🚫 | Not implementing |
-| XCLAIM | 🚫 | Not implementing |
-| XDEL | 🚫 | Not implementing |
-| XGROUP CREATE | 🚫 | Not implementing |
-| XGROUP CREATECONSUMER | 🚫 | Not implementing |
-| XGROUP DELCONSUMER | 🚫 | Not implementing |
-| XGROUP DESTROY | 🚫 | Not implementing |
-| XGROUP SETID | 🚫 | Not implementing |
-| XINFO CONSUMERS | 🚫 | Not implementing |
-| XINFO GROUPS | 🚫 | Not implementing |
-| XINFO STREAM | 🚫 | Not implementing |
-| XLEN | 🚫 | Not implementing |
-| XPENDING | 🚫 | Not implementing |
-| XRANGE | 🚫 | Not implementing |
-| XREAD | 🚫 | Not implementing |
-| XREADGROUP | 🚫 | Not implementing |
-| XREVRANGE | 🚫 | Not implementing |
-| XSETID | 🚫 | Not implementing |
-| XTRIM | 🚫 | Not implementing |
 
 ---
 
@@ -199,23 +181,6 @@ in this implementation.
 | PFDEBUG | 🚫 | |
 | PFMERGE | ✅ | |
 | PFSELFTEST | 🚫 | |
-
----
-
-## Geospatial commands
-
-| Command | Status | Notes |
-|---------|--------|-------|
-| GEOADD | 🚫 | Not implementing |
-| GEODIST | 🚫 | Not implementing |
-| GEOHASH | 🚫 | Not implementing |
-| GEOPOS | 🚫 | Not implementing |
-| GEORADIUS | 🚫 | Not implementing |
-| GEORADIUS_RO | 🚫 | Not implementing |
-| GEORADIUSBYMEMBER | 🚫 | Not implementing |
-| GEORADIUSBYMEMBER_RO | 🚫 | Not implementing |
-| GEOSEARCH | 🚫 | Not implementing |
-| GEOSEARCHSTORE | 🚫 | Not implementing |
 
 ---
 
@@ -246,22 +211,6 @@ in this implementation.
 | MULTI | 🚫 | |
 | UNWATCH | 🚫 | |
 | WATCH | 🚫 | |
-
----
-
-## Scripting commands
-
-| Command | Status | Notes |
-|---------|--------|-------|
-| EVAL | 🚫 | Not implementing |
-| EVAL_RO | 🚫 | Not implementing |
-| EVALSHA | 🚫 | Not implementing |
-| EVALSHA_RO | 🚫 | Not implementing |
-| SCRIPT DEBUG | 🚫 | Not implementing |
-| SCRIPT EXISTS | 🚫 | Not implementing |
-| SCRIPT FLUSH | 🚫 | Not implementing |
-| SCRIPT KILL | 🚫 | Not implementing |
-| SCRIPT LOAD | 🚫 | Not implementing |
 
 ---
 
