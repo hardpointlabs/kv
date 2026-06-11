@@ -21,6 +21,11 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Setup git auth
+        run: |
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Semantic Release
         id: semantic
         uses: cycjimmy/semantic-release-action@v6
@@ -29,6 +34,8 @@ jobs:
             @semantic-release/git
             @semantic-release/exec
             @semantic-release/changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fetch tags
         if: steps.semantic.outputs.new_release == 'true'
         run: git fetch --force --tags
