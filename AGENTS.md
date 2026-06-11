@@ -37,6 +37,10 @@ Then ensure all the tests pass as outlined below.
 
 If you have implemented a new command(s), check the `COMPATIBILITY.md` table and update it accordingly.
 
+## Branching strategy
+
+Create a new branch based on latest master for new feature development. Create a PR with a clear description of changes made once you're ready and wait for the checks to pass before merging. Direct pushes to master are blocked.
+
 ## Test
 
 * To run all unit tests, run `go test ./...`
