@@ -29,8 +29,6 @@ jobs:
             @semantic-release/git
             @semantic-release/exec
             @semantic-release/changelog
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fetch tags
         if: steps.semantic.outputs.new_release == 'true'
         run: git fetch --force --tags
