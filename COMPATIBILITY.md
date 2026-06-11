@@ -124,36 +124,38 @@ in this implementation.
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| BZPOPMAX | 🚫 | |
-| BZPOPMIN | 🚫 | |
-| ZADD | 🚫 | |
-| ZCARD | 🚫 | |
-| ZCOUNT | 🚫 | |
-| ZDIFF | 🚫 | |
-| ZDIFFSTORE | 🚫 | |
-| ZINCRBY | 🚫 | |
-| ZINTER | 🚫 | |
-| ZINTERSTORE | 🚫 | |
-| ZLEXCOUNT | 🚫 | |
-| ZPOPMAX | 🚫 | |
-| ZPOPMIN | 🚫 | |
-| ZRANDMEMBER | 🚫 | |
-| ZRANGE | 🚫 | |
-| ZRANGEBYLEX | 🚫 | |
-| ZRANGEBYSCORE | 🚫 | |
-| ZRANK | 🚫 | |
-| ZREM | 🚫 | |
-| ZREMRANGEBYLEX | 🚫 | |
-| ZREMRANGEBYRANK | 🚫 | |
-| ZREMRANGEBYSCORE | 🚫 | |
-| ZREVRANGE | 🚫 | |
-| ZREVRANGEBYLEX | 🚫 | |
-| ZREVRANGEBYSCORE | 🚫 | |
-| ZREVRANK | 🚫 | |
+| BZPOPMAX | 🚫 | Blocking variant, not implementing |
+| BZPOPMIN | 🚫 | Blocking variant, not implementing |
+| ZADD | ✅ | |
+| ZCARD | ✅ | |
+| ZCOUNT | ✅ | |
+| ZDIFF | ✅ | |
+| ZDIFFSTORE | ✅ | |
+| ZINCRBY | ✅ | |
+| ZINTER | ✅ | |
+| ZINTERSTORE | ✅ | |
+| ZLEXCOUNT | ✅ | |
+| ZMSCORE | ✅ | |
+| ZPOPMAX | ✅ | |
+| ZPOPMIN | ✅ | |
+| ZRANDMEMBER | ✅ | |
+| ZRANGE | ✅ | |
+| ZRANGEBYLEX | ✅ | |
+| ZRANGEBYSCORE | ✅ | |
+| ZRANGESTORE | ✅ | |
+| ZRANK | ✅ | |
+| ZREM | ✅ | |
+| ZREMRANGEBYLEX | ✅ | |
+| ZREMRANGEBYRANK | ✅ | |
+| ZREMRANGEBYSCORE | ✅ | |
+| ZREVRANGE | ✅ | |
+| ZREVRANGEBYLEX | ✅ | |
+| ZREVRANGEBYSCORE | ✅ | |
+| ZREVRANK | ✅ | |
 | ZSCAN | 🚫 | |
-| ZSCORE | 🚫 | |
-| ZUNION | 🚫 | |
-| ZUNIONSTORE | 🚫 | |
+| ZSCORE | ✅ | |
+| ZUNION | ✅ | |
+| ZUNIONSTORE | ✅ | |
 
 
 ---
@@ -218,25 +220,25 @@ in this implementation.
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| AUTH | 🚫 | |
-| CLIENT CACHING | 🚫 | |
-| CLIENT GETNAME | 🚫 | |
-| CLIENT GETREDIR | 🚫 | |
+| AUTH | 🚫 | Not implementing |
+| CLIENT CACHING | 🚫 | Not implementing |
+| CLIENT GETNAME | 🚫 | Not implementing |
+| CLIENT GETREDIR | 🚫 | Not implementing |
 | CLIENT ID | ✅ | |
 | CLIENT INFO | ✅ | |
-| CLIENT KILL | 🚫 | |
+| CLIENT KILL | 🚫 | Not implementing |
 | CLIENT LIST | 🚫 | |
-| CLIENT NO-EVICT | 🚫 | |
-| CLIENT NO-TOUCH | 🚫 | |
-| CLIENT PAUSE | 🚫 | |
-| CLIENT REPLY | 🚫 | |
-| CLIENT SETNAME | 🚫 | |
-| CLIENT TRACKING | 🚫 | |
-| CLIENT TRACKINGINFO | 🚫 | |
-| CLIENT UNBLOCK | 🚫 | |
-| CLIENT UNPAUSE | 🚫 | |
-| ECHO | 🚫 | |
-| HELLO | 🚫 | |
+| CLIENT NO-EVICT | 🚫 | Not implementing |
+| CLIENT NO-TOUCH | 🚫 | Not implementing |
+| CLIENT PAUSE | 🚫 | Not implementing |
+| CLIENT REPLY | 🚫 | Not implementing |
+| CLIENT SETNAME | 🚫 | Not implementing |
+| CLIENT TRACKING | 🚫 | Not implementing |
+| CLIENT TRACKINGINFO | 🚫 | Not implementing |
+| CLIENT UNBLOCK | 🚫 | Not implementing |
+| CLIENT UNPAUSE | 🚫 | Not implementing |
+| ECHO | ✅ | |
+| HELLO | 🚫 | Not implementing |
 | PING | ✅ | |
 | QUIT | ✅ | |
 | RESET | 🚫 | |

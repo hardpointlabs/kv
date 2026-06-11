@@ -1015,5 +1015,29 @@
     "version": "1.0.0",
     "description": "JSON.NUMINCRBY increments a number path",
     "setup": [["JSON.SET", "jsontest_incr", "$", "{\"x\":10}"]]
+  },
+  {
+    "name": "ECHO basic",
+    "command": ["ECHO", "hello world"],
+    "expected": "hello world",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "ECHO returns the argument"
+  },
+  {
+    "name": "ECHO empty string",
+    "command": ["ECHO", ""],
+    "expected": "",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "ECHO with empty string"
+  },
+  {
+    "name": "ECHO with special chars",
+    "command": ["ECHO", "test\nnewline\r"],
+    "expected": "test\nnewline\r",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "ECHO with special characters"
   }
 ]

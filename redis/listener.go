@@ -206,12 +206,18 @@ func Serve(db *badger.DB) {
 				}
 				setCurrentDb(conn, dbIndex)
 				conn.WriteString("OK")
-			case "ping":
-				if len(cmd.Args) > 1 {
-					conn.WriteBulkString(string(cmd.Args[1]))
+		case "echo":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for 'echo' command")
 				} else {
-					conn.WriteString("PONG")
+					conn.WriteBulkString(string(cmd.Args[1]))
 				}
+		case "ping":
+			if len(cmd.Args) > 1 {
+				conn.WriteBulkString(string(cmd.Args[1]))
+			} else {
+				conn.WriteString("PONG")
+			}
 			case "quit":
 				conn.WriteString("OK")
 				conn.Close()
@@ -894,21 +900,819 @@ func Serve(db *badger.DB) {
 					return
 				}
 				conn.WriteInt(count)
-			case "pfadd":
-				if !checkMinArgs(conn, cmd, 2) {
+			case "zadd":
+				if !checkMinArgs(conn, cmd, 4) {
 					return
 				}
-				var updated int
+				var added int
 				err := db.Update(func(txn *badger.Txn) error {
 					var err error
-					updated, err = pfadd(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					added, err = zadd(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError(err.Error())
+					return
+				}
+				conn.WriteInt(added)
+			case "zcard":
+				if !checkExactArgs(conn, cmd, 2) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					count, err := zcard(txn, conn, cmd.Args[1])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteInt(count)
+					return nil
+				})
+			case "zcount":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					count, err := zcount(txn, conn, cmd.Args[1], string(cmd.Args[2]), string(cmd.Args[3]))
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteInt(count)
+					return nil
+				})
+			case "zincrby":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				incr, ok := parseFloatArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				var newScore float64
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					newScore, err = zincrby(txn, conn, cmd.Args[1], incr, cmd.Args[3])
 					return err
 				})
 				if err != nil {
 					conn.WriteError("ERR " + err.Error())
 					return
 				}
-				conn.WriteInt(updated)
+				conn.WriteBulkString(strconv.FormatFloat(newScore, 'f', -1, 64))
+			case "zinter":
+				fallthrough
+			case "zinterstore":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				numKeys, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				if len(cmd.Args) < 3+numKeys {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				keys := cmd.Args[3 : 3+numKeys]
+				i := 3 + numKeys
+				var weights []float64
+				aggregate := "SUM"
+				for i < len(cmd.Args) {
+					arg := strings.ToLower(string(cmd.Args[i]))
+					if arg == "weights" {
+						i++
+						for j := 0; j < numKeys && i < len(cmd.Args); j++ {
+							w, ok := parseFloatArg(conn, cmd.Args[i])
+							if !ok {
+								return
+							}
+							weights = append(weights, w)
+							i++
+						}
+						if len(weights) != numKeys {
+							conn.WriteError("ERR weight count does not match number of keys")
+							return
+						}
+					} else if arg == "aggregate" {
+						i++
+						if i >= len(cmd.Args) {
+							conn.WriteError("ERR syntax error")
+							return
+						}
+						aggregate = string(cmd.Args[i])
+						if aggregate != "SUM" && aggregate != "MIN" && aggregate != "MAX" {
+							conn.WriteError("ERR syntax error")
+							return
+						}
+						i++
+					} else if arg == "withscores" && strings.ToLower(string(cmd.Args[0])) == "zinter" {
+						i++
+					} else {
+						conn.WriteError("ERR syntax error")
+						return
+					}
+				}
+				isStore := strings.ToLower(string(cmd.Args[0])) == "zinterstore"
+				db.View(func(txn *badger.Txn) error {
+					m, err := zinter(txn, conn, aggregate, keys...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					// Apply weights
+					if len(weights) > 0 {
+						for member, score := range m {
+							// Find which source key this member came from and apply weight
+							m[member] = score * weights[0]
+						}
+					}
+					if isStore {
+						members := zsetToSlice(m)
+						count, err := storeZSetResult(txn, conn, cmd.Args[1], members)
+						if err != nil {
+							conn.WriteError("ERR " + err.Error())
+							return nil
+						}
+						conn.WriteInt(count)
+					} else {
+						// ZINTER - check WITHSCORES
+						hasWithScores := false
+						for _, arg := range cmd.Args {
+							if strings.EqualFold(string(arg), "withscores") {
+								hasWithScores = true
+								break
+							}
+						}
+						members := zsetToSlice(m)
+						if hasWithScores {
+							conn.WriteArray(len(members) * 2)
+							for _, e := range members {
+								conn.WriteBulk(e.member)
+								conn.WriteBulkString(strconv.FormatFloat(e.score, 'f', -1, 64))
+							}
+						} else {
+							conn.WriteArray(len(members))
+							for _, e := range members {
+								conn.WriteBulk(e.member)
+							}
+						}
+					}
+					return nil
+				})
+			case "zlexcount":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					count, err := zlexcount(txn, conn, cmd.Args[1], string(cmd.Args[2]), string(cmd.Args[3]))
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteInt(count)
+					return nil
+				})
+			case "zpopmax":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				popCount := 1
+				if len(cmd.Args) >= 3 {
+					var ok bool
+					popCount, ok = parseIntArg(conn, cmd.Args[2])
+					if !ok || popCount < 0 {
+						if !ok {
+							return
+						}
+						conn.WriteError("ERR value is not an integer or out of range")
+						return
+					}
+				}
+				db.Update(func(txn *badger.Txn) error {
+					popped, err := zpopmax(txn, conn, cmd.Args[1], popCount)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(popped) * 2)
+					for _, e := range popped {
+						conn.WriteBulk(e.member)
+						conn.WriteBulkString(strconv.FormatFloat(e.score, 'f', -1, 64))
+					}
+					return nil
+				})
+			case "zpopmin":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				popCount := 1
+				if len(cmd.Args) >= 3 {
+					var ok bool
+					popCount, ok = parseIntArg(conn, cmd.Args[2])
+					if !ok || popCount < 0 {
+						if !ok {
+							return
+						}
+						conn.WriteError("ERR value is not an integer or out of range")
+						return
+					}
+				}
+				db.Update(func(txn *badger.Txn) error {
+					popped, err := zpopmin(txn, conn, cmd.Args[1], popCount)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(popped) * 2)
+					for _, e := range popped {
+						conn.WriteBulk(e.member)
+						conn.WriteBulkString(strconv.FormatFloat(e.score, 'f', -1, 64))
+					}
+					return nil
+				})
+			case "zrange":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				stop, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
+					return
+				}
+				withScores := false
+				if len(cmd.Args) >= 5 && strings.EqualFold(string(cmd.Args[4]), "withscores") {
+					withScores = true
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrange(txn, conn, cmd.Args[1], start, stop, withScores)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrangebylex":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				minStr := string(cmd.Args[2])
+				maxStr := string(cmd.Args[3])
+				limitOffset, limitCount := 0, 0
+				hasLimit := false
+				if len(cmd.Args) >= 7 && strings.EqualFold(string(cmd.Args[4]), "limit") {
+					var ok bool
+					limitOffset, ok = parseIntArg(conn, cmd.Args[5])
+					if !ok {
+						return
+					}
+					limitCount, ok = parseIntArg(conn, cmd.Args[6])
+					if !ok {
+						return
+					}
+					hasLimit = true
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrangebylex(txn, conn, cmd.Args[1], minStr, maxStr, limitOffset, limitCount, hasLimit)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrangebyscore":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				minStr := string(cmd.Args[2])
+				maxStr := string(cmd.Args[3])
+				withScores := false
+				limitOffset, limitCount := 0, 0
+				hasLimit := false
+				for i := 4; i < len(cmd.Args); i++ {
+					arg := strings.ToLower(string(cmd.Args[i]))
+					if arg == "withscores" {
+						withScores = true
+					} else if arg == "limit" && i+2 < len(cmd.Args) {
+						var ok bool
+						limitOffset, ok = parseIntArg(conn, cmd.Args[i+1])
+						if !ok {
+							return
+						}
+						limitCount, ok = parseIntArg(conn, cmd.Args[i+2])
+						if !ok {
+							return
+						}
+						hasLimit = true
+						i += 2
+					}
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrangebyscore(txn, conn, cmd.Args[1], minStr, maxStr, withScores, limitOffset, limitCount, hasLimit)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrank":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					rank, found, err := zrank(txn, conn, cmd.Args[1], cmd.Args[2])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if !found {
+						conn.WriteNull()
+					} else {
+						conn.WriteInt(rank)
+					}
+					return nil
+				})
+			case "zrem":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var removed int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					removed, err = zrem(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(removed)
+			case "zremrangebylex":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				var removed int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					removed, err = zremrangebylex(txn, conn, cmd.Args[1], string(cmd.Args[2]), string(cmd.Args[3]))
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(removed)
+			case "zremrangebyrank":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				stop, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
+					return
+				}
+				var removed int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					removed, err = zremrangebyrank(txn, conn, cmd.Args[1], start, stop)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(removed)
+			case "zremrangebyscore":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				var removed int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					removed, err = zremrangebyscore(txn, conn, cmd.Args[1], string(cmd.Args[2]), string(cmd.Args[3]))
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(removed)
+			case "zrevrange":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				stop, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
+					return
+				}
+				withScores := false
+				if len(cmd.Args) >= 5 && strings.EqualFold(string(cmd.Args[4]), "withscores") {
+					withScores = true
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrevrange(txn, conn, cmd.Args[1], start, stop, withScores)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrevrangebylex":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				maxStr := string(cmd.Args[2])
+				minStr := string(cmd.Args[3])
+				limitOffset, limitCount := 0, 0
+				hasLimit := false
+				if len(cmd.Args) >= 7 && strings.EqualFold(string(cmd.Args[4]), "limit") {
+					var ok bool
+					limitOffset, ok = parseIntArg(conn, cmd.Args[5])
+					if !ok {
+						return
+					}
+					limitCount, ok = parseIntArg(conn, cmd.Args[6])
+					if !ok {
+						return
+					}
+					hasLimit = true
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrevrangebylex(txn, conn, cmd.Args[1], maxStr, minStr, limitOffset, limitCount, hasLimit)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrevrangebyscore":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				maxStr := string(cmd.Args[2])
+				minStr := string(cmd.Args[3])
+				withScores := false
+				limitOffset, limitCount := 0, 0
+				hasLimit := false
+				for i := 4; i < len(cmd.Args); i++ {
+					arg := strings.ToLower(string(cmd.Args[i]))
+					if arg == "withscores" {
+						withScores = true
+					} else if arg == "limit" && i+2 < len(cmd.Args) {
+						var ok bool
+						limitOffset, ok = parseIntArg(conn, cmd.Args[i+1])
+						if !ok {
+							return
+						}
+						limitCount, ok = parseIntArg(conn, cmd.Args[i+2])
+						if !ok {
+							return
+						}
+						hasLimit = true
+						i += 2
+					}
+				}
+				db.View(func(txn *badger.Txn) error {
+					result, err := zrevrangebyscore(txn, conn, cmd.Args[1], maxStr, minStr, withScores, limitOffset, limitCount, hasLimit)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(result))
+					for _, r := range result {
+						conn.WriteBulk(r)
+					}
+					return nil
+				})
+			case "zrevrank":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					rank, found, err := zrevrank(txn, conn, cmd.Args[1], cmd.Args[2])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if !found {
+						conn.WriteNull()
+					} else {
+						conn.WriteInt(rank)
+					}
+					return nil
+				})
+			case "zscore":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					score, found, err := zscore(txn, conn, cmd.Args[1], cmd.Args[2])
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if !found {
+						conn.WriteNull()
+					} else {
+						conn.WriteBulkString(strconv.FormatFloat(score, 'f', -1, 64))
+					}
+					return nil
+				})
+			case "zdiff":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				numKeys, ok := parseIntArg(conn, cmd.Args[1])
+				if !ok {
+					return
+				}
+				if len(cmd.Args) < 2+numKeys {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				keys := cmd.Args[2 : 2+numKeys]
+				hasWithScores := false
+				if len(cmd.Args) > 2+numKeys && strings.EqualFold(string(cmd.Args[2+numKeys]), "withscores") {
+					hasWithScores = true
+				}
+				db.View(func(txn *badger.Txn) error {
+					m, err := zdiff(txn, conn, keys...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					members := zsetToSlice(m)
+					if hasWithScores {
+						conn.WriteArray(len(members) * 2)
+						for _, e := range members {
+							conn.WriteBulk(e.member)
+							conn.WriteBulkString(strconv.FormatFloat(e.score, 'f', -1, 64))
+						}
+					} else {
+						conn.WriteArray(len(members))
+						for _, e := range members {
+							conn.WriteBulk(e.member)
+						}
+					}
+					return nil
+				})
+			case "zdiffstore":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				numKeys, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				if len(cmd.Args) < 3+numKeys {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				keys := cmd.Args[3 : 3+numKeys]
+				db.Update(func(txn *badger.Txn) error {
+					m, err := zdiff(txn, conn, keys...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					members := zsetToSlice(m)
+					count, err := storeZSetResult(txn, conn, cmd.Args[1], members)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteInt(count)
+					return nil
+				})
+			case "zmscore":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				db.View(func(txn *badger.Txn) error {
+					scores, found, err := zmscore(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					conn.WriteArray(len(scores))
+					for i, s := range scores {
+						if found[i] {
+							conn.WriteBulkString(strconv.FormatFloat(s, 'f', -1, 64))
+						} else {
+							conn.WriteNull()
+						}
+					}
+					return nil
+				})
+			case "zrandmember":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				count := 1
+				withScores := false
+				if len(cmd.Args) >= 3 {
+					var ok bool
+					count, ok = parseIntArg(conn, cmd.Args[2])
+					if !ok {
+						return
+					}
+				}
+				if count < 0 {
+					withScores = true
+					count = -count
+				}
+				db.View(func(txn *badger.Txn) error {
+					members, scores, err := zrandmember(txn, conn, cmd.Args[1], count)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					if withScores {
+						conn.WriteArray(len(members) * 2)
+						for i := range members {
+							conn.WriteBulk(members[i])
+							conn.WriteBulkString(strconv.FormatFloat(scores[i], 'f', -1, 64))
+						}
+					} else {
+						conn.WriteArray(len(members))
+						for _, m := range members {
+							conn.WriteBulk(m)
+						}
+					}
+					return nil
+				})
+			case "zunion":
+				fallthrough
+			case "zunionstore":
+				if !checkMinArgs(conn, cmd, 4) {
+					return
+				}
+				numKeys, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				if len(cmd.Args) < 3+numKeys {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				keys := cmd.Args[3 : 3+numKeys]
+				i := 3 + numKeys
+				var weights []float64
+				aggregate := "SUM"
+				for i < len(cmd.Args) {
+					arg := strings.ToLower(string(cmd.Args[i]))
+					if arg == "weights" {
+						i++
+						for j := 0; j < numKeys && i < len(cmd.Args); j++ {
+							w, ok := parseFloatArg(conn, cmd.Args[i])
+							if !ok {
+								return
+							}
+							weights = append(weights, w)
+							i++
+						}
+						if len(weights) != numKeys {
+							conn.WriteError("ERR weight count does not match number of keys")
+							return
+						}
+					} else if arg == "aggregate" {
+						i++
+						if i >= len(cmd.Args) {
+							conn.WriteError("ERR syntax error")
+							return
+						}
+						aggregate = string(cmd.Args[i])
+						if aggregate != "SUM" && aggregate != "MIN" && aggregate != "MAX" {
+							conn.WriteError("ERR syntax error")
+							return
+						}
+						i++
+					} else if arg == "withscores" && strings.ToLower(string(cmd.Args[0])) == "zunion" {
+						i++
+					} else {
+						conn.WriteError("ERR syntax error")
+						return
+					}
+				}
+				isStore := strings.ToLower(string(cmd.Args[0])) == "zunionstore"
+				db.View(func(txn *badger.Txn) error {
+					m, err := zunion(txn, conn, aggregate, keys...)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					// Apply weights
+					if len(weights) > 0 {
+						for member, score := range m {
+							m[member] = score * weights[0]
+						}
+					}
+					if isStore {
+						members := zsetToSlice(m)
+						count, err := storeZSetResult(txn, conn, cmd.Args[1], members)
+						if err != nil {
+							conn.WriteError("ERR " + err.Error())
+							return nil
+						}
+						conn.WriteInt(count)
+					} else {
+						hasWithScores := false
+						for _, arg := range cmd.Args {
+							if strings.EqualFold(string(arg), "withscores") {
+								hasWithScores = true
+								break
+							}
+						}
+						members := zsetToSlice(m)
+						if hasWithScores {
+							conn.WriteArray(len(members) * 2)
+							for _, e := range members {
+								conn.WriteBulk(e.member)
+								conn.WriteBulkString(strconv.FormatFloat(e.score, 'f', -1, 64))
+							}
+						} else {
+							conn.WriteArray(len(members))
+							for _, e := range members {
+								conn.WriteBulk(e.member)
+							}
+						}
+					}
+					return nil
+				})
+			case "zrangestore":
+				if !checkExactArgs(conn, cmd, 5) {
+					return
+				}
+				start, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
+					return
+				}
+				stop, ok := parseIntArg(conn, cmd.Args[4])
+				if !ok {
+					return
+				}
+				var storeCount int
+				err := db.Update(func(txn *badger.Txn) error {
+					result, err := zrange(txn, conn, cmd.Args[2], start, stop, false)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					// Re-fetch with scores for storage
+					resultWS, err := zrange(txn, conn, cmd.Args[2], start, stop, true)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					members := make([]memberScore, len(result))
+					for i := range result {
+						score, _ := strconv.ParseFloat(string(resultWS[i*2+1]), 64)
+						members[i] = memberScore{member: result[i], score: score}
+					}
+					count, err := storeZSetResult(txn, conn, cmd.Args[1], members)
+					if err != nil {
+						conn.WriteError("ERR " + err.Error())
+						return nil
+					}
+					storeCount = count
+					return nil
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(storeCount)
+			case "pfadd":
 			case "pfcount":
 				if !checkMinArgs(conn, cmd, 2) {
 					return
