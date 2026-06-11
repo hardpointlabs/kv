@@ -1743,6 +1743,20 @@ func Serve(db *badger.DB) {
 				}
 				conn.WriteInt(storeCount)
 			case "pfadd":
+				if !checkMinArgs(conn, cmd, 3) {
+					return
+				}
+				var added int
+				err := db.Update(func(txn *badger.Txn) error {
+					var err error
+					added, err = pfadd(txn, conn, cmd.Args[1], cmd.Args[2:]...)
+					return err
+				})
+				if err != nil {
+					conn.WriteError("ERR " + err.Error())
+					return
+				}
+				conn.WriteInt(added)
 			case "pfcount":
 				if !checkMinArgs(conn, cmd, 2) {
 					return
