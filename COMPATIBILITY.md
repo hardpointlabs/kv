@@ -23,25 +23,25 @@ in this implementation.
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| APPEND | 🚫 | |
+| APPEND | ✅ | |
 | DECR | ✅ | |
 | DECRBY | ✅ | |
 | GET | ✅ | |
 | GETDEL | ✅ | |
-| GETEX | 🚫 | |
-| GETRANGE | 🚫 | |
+| GETEX | ✅ | |
+| GETRANGE | ✅ | |
 | GETSET | ✅ | |
 | INCR | ✅ | |
 | INCRBY | ✅ | |
-| INCRBYFLOAT | 🚫 | |
+| INCRBYFLOAT | ✅ | |
 | MGET | ✅ | |
-| MSET | 🚫 | |
-| MSETNX | 🚫 | |
-| PSETEX | 🚫 | |
+| MSET | ✅ | |
+| MSETNX | ✅ | |
+| PSETEX | ✅ | |
 | SET | ✅ | |
 | SETEX | ✅ | |
 | SETNX | ✅ | |
-| SETRANGE | 🚫 | |
+| SETRANGE | ✅ | |
 | STRLEN | ✅ | |
 | SUBSTR | ✅ | |
 

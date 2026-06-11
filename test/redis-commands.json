@@ -1415,5 +1415,266 @@
     "version": "1.0.0",
     "description": "ZRANGESTORE stores a range of members in a new key",
     "setup": [["DEL", "zint_zrs_dest"], ["DEL", "zint_zrs_src"], ["ZADD", "zint_zrs_src", "1", "a", "2", "b", "3", "c"]]
+  },
+  {
+    "name": "APPEND creates new key",
+    "command": ["APPEND", "st_append_new", "hello"],
+    "expected": 5,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "APPEND returns length after appending to a non-existing key",
+    "setup": [["DEL", "st_append_new"]]
+  },
+  {
+    "name": "APPEND to existing key",
+    "command": ["APPEND", "st_append_existing", " world"],
+    "expected": 11,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "APPEND returns new length after appending to an existing key",
+    "setup": [["DEL", "st_append_existing"], ["SET", "st_append_existing", "hello"]]
+  },
+  {
+    "name": "GET value after APPEND",
+    "command": ["GET", "st_append_existing"],
+    "expected": "hello world",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GET confirms the appended value is correct",
+    "setup": [["DEL", "st_append_existing"], ["SET", "st_append_existing", "hello"], ["APPEND", "st_append_existing", " world"]]
+  },
+  {
+    "name": "GETEX returns existing value",
+    "command": ["GETEX", "st_getex_basic"],
+    "expected": "hello",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GETEX returns the value of an existing key",
+    "setup": [["DEL", "st_getex_basic"], ["SET", "st_getex_basic", "hello"]]
+  },
+  {
+    "name": "GETEX non-existing key",
+    "command": ["GETEX", "st_getex_nonexistent"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "GETEX returns null for a non-existing key",
+    "setup": [["DEL", "st_getex_nonexistent"]]
+  },
+  {
+    "name": "GETEX PERSIST removes TTL",
+    "command": ["TTL", "st_getex_persist"],
+    "expected": -1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "GETEX PERSIST removes the TTL from a key with expiry",
+    "setup": [["DEL", "st_getex_persist"], ["SETEX", "st_getex_persist", 100, "hello"], ["GETEX", "st_getex_persist", "PERSIST"]]
+  },
+  {
+    "name": "GETEX EX sets expiry in seconds",
+    "command": ["TTL", "st_getex_ex"],
+    "expected": 50,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "GETEX EX sets expiry in seconds and returns the value",
+    "setup": [["DEL", "st_getex_ex"], ["SET", "st_getex_ex", "hello"], ["GETEX", "st_getex_ex", "EX", "50"]]
+  },
+  {
+    "name": "GETRANGE returns substring",
+    "command": ["GETRANGE", "st_getrange_val", "0", "4"],
+    "expected": "Hello",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GETRANGE returns the substring from start to end inclusive",
+    "setup": [["DEL", "st_getrange_val"], ["SET", "st_getrange_val", "Hello World"]]
+  },
+  {
+    "name": "GETRANGE with negative indices",
+    "command": ["GETRANGE", "st_getrange_val", "-5", "-1"],
+    "expected": "World",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GETRANGE with negative indices counts from the end",
+    "setup": [["DEL", "st_getrange_val"], ["SET", "st_getrange_val", "Hello World"]]
+  },
+  {
+    "name": "GETRANGE non-existing key",
+    "command": ["GETRANGE", "st_getrange_nonexistent", "0", "1"],
+    "expected": "",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GETRANGE on non-existing key returns empty string",
+    "setup": [["DEL", "st_getrange_nonexistent"]]
+  },
+  {
+    "name": "GETRANGE out of range",
+    "command": ["GETRANGE", "st_getrange_val", "100", "200"],
+    "expected": "",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GETRANGE with start beyond string length returns empty string",
+    "setup": [["DEL", "st_getrange_val"], ["SET", "st_getrange_val", "Hello"]]
+  },
+  {
+    "name": "INCRBYFLOAT on non-existing key",
+    "command": ["INCRBYFLOAT", "st_incrfloat_new", "2.5"],
+    "expected": "2.5",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT on non-existing key sets value to the increment",
+    "setup": [["DEL", "st_incrfloat_new"]]
+  },
+  {
+    "name": "INCRBYFLOAT increments existing value",
+    "command": ["INCRBYFLOAT", "st_incrfloat_existing", "1.1"],
+    "expected": "3.1",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT increments an existing float value",
+    "setup": [["DEL", "st_incrfloat_existing"], ["SET", "st_incrfloat_existing", "2"]]
+  },
+  {
+    "name": "INCRBYFLOAT negative increment",
+    "command": ["INCRBYFLOAT", "st_incrfloat_neg", "-0.5"],
+    "expected": "1.5",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT with a negative increment",
+    "setup": [["DEL", "st_incrfloat_neg"], ["SET", "st_incrfloat_neg", "2"]]
+  },
+  {
+    "name": "INCRBYFLOAT integer result",
+    "command": ["INCRBYFLOAT", "st_incrfloat_int", "2"],
+    "expected": "4",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT returns integer string when result is whole",
+    "setup": [["DEL", "st_incrfloat_int"], ["SET", "st_incrfloat_int", "2"]]
+  },
+  {
+    "name": "MSET sets multiple keys",
+    "command": ["MSET", "st_mset_k1", "v1", "st_mset_k2", "v2", "st_mset_k3", "v3"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "MSET sets multiple key-value pairs atomically",
+    "setup": [["DEL", "st_mset_k1"], ["DEL", "st_mset_k2"], ["DEL", "st_mset_k3"]]
+  },
+  {
+    "name": "GET after MSET confirms all keys set",
+    "command": ["MGET", "st_mset_k1", "st_mset_k2", "st_mset_k3"],
+    "expected": ["v1", "v2", "v3"],
+    "type": "array",
+    "version": "1.0.0",
+    "description": "MGET confirms all values set by MSET",
+    "setup": [["DEL", "st_mset_k1"], ["DEL", "st_mset_k2"], ["DEL", "st_mset_k3"], ["MSET", "st_mset_k1", "v1", "st_mset_k2", "v2", "st_mset_k3", "v3"]]
+  },
+  {
+    "name": "MSETNX sets all keys when none exist",
+    "command": ["MSETNX", "st_msetnx_a", "val_a", "st_msetnx_b", "val_b"],
+    "expected": 1,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "MSETNX returns 1 when all keys are set",
+    "setup": [["DEL", "st_msetnx_a"], ["DEL", "st_msetnx_b"]]
+  },
+  {
+    "name": "MSETNX fails when a key exists",
+    "command": ["MSETNX", "st_msetnx_fail", "x", "st_msetnx_existing", "y"],
+    "expected": 0,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "MSETNX returns 0 when any key already exists",
+    "setup": [["DEL", "st_msetnx_fail"], ["DEL", "st_msetnx_existing"], ["SET", "st_msetnx_existing", "exists"]]
+  },
+  {
+    "name": "MSETNX does not modify values on failure",
+    "command": ["GET", "st_msetnx_fail"],
+    "expected": null,
+    "type": "null",
+    "version": "1.0.0",
+    "description": "MSETNX should not set any keys when one already exists",
+    "setup": [["DEL", "st_msetnx_fail"], ["DEL", "st_msetnx_existing"], ["SET", "st_msetnx_existing", "exists"], ["MSETNX", "st_msetnx_fail", "x", "st_msetnx_existing", "y"]]
+  },
+  {
+    "name": "PSETEX sets key with millisecond TTL",
+    "command": ["PSETEX", "st_psetex_key", "5000", "hello"],
+    "expected": "OK",
+    "type": "simple_string",
+    "version": "1.0.0",
+    "description": "PSETEX sets a key with expiry in milliseconds",
+    "setup": [["DEL", "st_psetex_key"]]
+  },
+  {
+    "name": "GET confirms value set by PSETEX",
+    "command": ["GET", "st_psetex_key"],
+    "expected": "hello",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GET confirms the value was set by PSETEX",
+    "setup": [["DEL", "st_psetex_key"], ["PSETEX", "st_psetex_key", "5000", "hello"]]
+  },
+  {
+    "name": "PTTL after PSETEX returns remaining ms",
+    "command": ["PTTL", "st_psetex_key"],
+    "expected": "> -1",
+    "type": "integer_gt",
+    "version": "1.0.0",
+    "description": "PTTL returns positive remaining milliseconds after PSETEX",
+    "setup": [["DEL", "st_psetex_key"], ["PSETEX", "st_psetex_key", "5000", "hello"]]
+  },
+  {
+    "name": "SETRANGE overwrites at offset 0",
+    "command": ["SETRANGE", "st_setrange_val", "0", "HELLO"],
+    "expected": 11,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "SETRANGE overwrites part of the string at offset 0",
+    "setup": [["DEL", "st_setrange_val"], ["SET", "st_setrange_val", "Hello World"]]
+  },
+  {
+    "name": "GET confirms SETRANGE result",
+    "command": ["GET", "st_setrange_val"],
+    "expected": "HELLO World",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "GET confirms the string was modified by SETRANGE",
+    "setup": [["DEL", "st_setrange_val"], ["SET", "st_setrange_val", "Hello World"], ["SETRANGE", "st_setrange_val", "0", "HELLO"]]
+  },
+  {
+    "name": "SETRANGE extends string with offset beyond length",
+    "command": ["SETRANGE", "st_setrange_extend", "5", "!!"],
+    "expected": 7,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "SETRANGE extends a string with null bytes when offset is beyond the current length",
+    "setup": [["DEL", "st_setrange_extend"], ["SET", "st_setrange_extend", "hi"]]
+  },
+  {
+    "name": "SETRANGE on non-existing key",
+    "command": ["SETRANGE", "st_setrange_new", "3", "abc"],
+    "expected": 6,
+    "type": "integer",
+    "version": "1.0.0",
+    "description": "SETRANGE on a non-existing key pads with null bytes",
+    "setup": [["DEL", "st_setrange_new"]]
+  },
+  {
+    "name": "INCRBYFLOAT infinity overflow",
+    "command": ["INCRBYFLOAT", "st_incrfloat_inf", "1e308"],
+    "expected": "inf",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT returns inf on overflow",
+    "setup": [["DEL", "st_incrfloat_inf"], ["SET", "st_incrfloat_inf", "1e308"]]
+  },
+  {
+    "name": "INCRBYFLOAT negative infinity overflow",
+    "command": ["INCRBYFLOAT", "st_incrfloat_neginf", "-1e308"],
+    "expected": "-inf",
+    "type": "bulk_string",
+    "version": "1.0.0",
+    "description": "INCRBYFLOAT returns -inf on negative overflow",
+    "setup": [["DEL", "st_incrfloat_neginf"], ["SET", "st_incrfloat_neginf", "-1e308"]]
   }
 ]

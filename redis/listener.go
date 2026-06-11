@@ -399,6 +399,68 @@ func Serve(db *badger.DB) {
 					return
 				}
 				incrementKey(conn, db, cmd.Args[1], -amount)
+			case "append":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				appendKey(conn, db, cmd.Args[1], cmd.Args[2])
+			case "getex":
+				if !checkMinArgs(conn, cmd, 2) {
+					return
+				}
+				getEx(conn, db, cmd.Args[1:]...)
+			case "getrange":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				start, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				end, ok := parseIntArg(conn, cmd.Args[3])
+				if !ok {
+					return
+				}
+				substrKey(conn, db, cmd.Args[1], start, end)
+			case "incrbyfloat":
+				if !checkExactArgs(conn, cmd, 3) {
+					return
+				}
+				amount, ok := parseFloatArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				incrByFloat(conn, db, cmd.Args[1], amount)
+			case "mset":
+				if len(cmd.Args) < 3 || (len(cmd.Args)-1)%2 != 0 {
+					conn.WriteError("ERR wrong number of arguments for 'mset' command")
+					return
+				}
+				msetKeys(conn, db, cmd.Args[1:]...)
+			case "msetnx":
+				if len(cmd.Args) < 3 || (len(cmd.Args)-1)%2 != 0 {
+					conn.WriteError("ERR wrong number of arguments for 'msetnx' command")
+					return
+				}
+				msetnxKeys(conn, db, cmd.Args[1:]...)
+			case "psetex":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				ms, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				setKeyWithTTLMs(conn, db, cmd.Args[1], cmd.Args[3], ms)
+			case "setrange":
+				if !checkExactArgs(conn, cmd, 4) {
+					return
+				}
+				offset, ok := parseIntArg(conn, cmd.Args[2])
+				if !ok {
+					return
+				}
+				setRangeKey(conn, db, cmd.Args[1], offset, cmd.Args[3])
 			case "type":
 				if !checkExactArgs(conn, cmd, 2) {
 					return
