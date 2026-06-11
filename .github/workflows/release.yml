@@ -53,3 +53,4 @@ jobs:
           args: release --clean
         env:
           KO_DOCKER_REPO: ghcr.io/hardpointlabs/invar
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
