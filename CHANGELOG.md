@@ -1,3 +1,12 @@
+## [1.0.2](https://github.com/hardpointlabs/invar/compare/v1.0.1...v1.0.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* consolidate token refs ([cf4f854](https://github.com/hardpointlabs/invar/commit/cf4f854e53dc018c2a38ac0afb4cd777ad694d7c))
+* rewrite git url before invoking semantic release ([efab5bf](https://github.com/hardpointlabs/invar/commit/efab5bfc9d2901924e7c08981d660d44a2139d4d))
+* whitespace ([7cc9bbb](https://github.com/hardpointlabs/invar/commit/7cc9bbbbb374341d66715dc7bba01b179eb1911c))
+
 ## [1.0.1](https://github.com/hardpointlabs/invar/compare/v1.0.0...v1.0.1) (2026-06-11)
 
 
