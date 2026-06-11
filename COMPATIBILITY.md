@@ -51,22 +51,22 @@ in this implementation.
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| HDEL | 🚫 | |
-| HEXISTS | 🚫 | |
-| HGET | 🚫 | |
-| HGETALL | 🚫 | |
-| HINCRBY | 🚫 | |
-| HINCRBYFLOAT | 🚫 | |
-| HKEYS | 🚫 | |
-| HLEN | 🚫 | |
-| HMGET | 🚫 | |
-| HMSET | 🚫 | |
-| HRANDFIELD | 🚫 | |
-| HSCAN | 🚫 | |
-| HSET | 🚫 | |
-| HSETNX | 🚫 | |
-| HSTRLEN | 🚫 | |
-| HVALS | 🚫 | |
+| HDEL | ✅ | |
+| HEXISTS | ✅ | |
+| HGET | ✅ | |
+| HGETALL | ✅ | |
+| HINCRBY | ✅ | |
+| HINCRBYFLOAT | ✅ | |
+| HKEYS | ✅ | |
+| HLEN | ✅ | |
+| HMGET | ✅ | |
+| HMSET | ✅ | |
+| HRANDFIELD | ✅ | |
+| HSCAN | ✅ | |
+| HSET | ✅ | |
+| HSETNX | ✅ | |
+| HSTRLEN | ✅ | |
+| HVALS | ✅ | |
 
 ---
 
