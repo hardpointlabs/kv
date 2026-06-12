@@ -12,22 +12,22 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	adapter := &BadgerZerologAdapter{Logger: logger}
 
 	opts := badger.DefaultOptions("/tmp/badger")
 	opts.Logger = adapter
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Fatal().Err(err).Msg("")
+		log.Fatal().Err(err).Msg("failed to open badger database")
 	}
 
 	defer db.Close()
 
 	go func() {
 		log.Info().Msg("starting pprof server on localhost:6060")
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			log.Fatal().Err(err).Msg("pprof server failed")
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("pprof server failed")
 		}
 	}()
 
