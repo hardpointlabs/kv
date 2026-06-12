@@ -26,8 +26,8 @@ func main() {
 
 	go func() {
 		log.Info().Msg("starting pprof server on localhost:6060")
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			log.Fatal().Err(err).Msg("pprof server failed")
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("pprof server failed")
 		}
 	}()
 
