@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	adapter := &BadgerZerologAdapter{Logger: logger}
 
 	opts := badger.DefaultOptions("/tmp/badger")
