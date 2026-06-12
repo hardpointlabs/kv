@@ -12,10 +12,12 @@ import (
 )
 
 func main() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	logger := zerolog.New(os.Stdout)
+	adapter := &BadgerZerologAdapter{Logger: logger}
 
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	opts := badger.DefaultOptions("/tmp/badger")
+	opts.Logger = adapter
+	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
