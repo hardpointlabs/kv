@@ -19,7 +19,7 @@ func main() {
 	opts.Logger = adapter
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Fatal().Err(err).Msg("")
+		log.Fatal().Err(err).Msg("failed to open badger database")
 	}
 
 	defer db.Close()
